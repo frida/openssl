@@ -1,0 +1,28 @@
+diff --git a/Configurations/10-main.conf b/Configurations/10-main.conf
+index b578a3c2a8..dc6ceb8692 100644
+--- a/Configurations/10-main.conf
++++ b/Configurations/10-main.conf
+@@ -1673,13 +1673,22 @@ my %targets = (
+         asm_arch         => 'x86_64',
+         perlasm_scheme   => "macosx",
+     },
++    "darwin-armv7-cc" => { inherit_from => [ "darwin-armv7" ] }, # "Historic" alias
++    "darwin-armv7" => {
++        inherit_from     => [ "darwin-common" ],
++        CFLAGS           => add("-Wall"),
++        cflags           => add("-arch armv7"),
++        lib_cppflags     => add("-DL_ENDIAN"),
++        asm_arch         => 'armv4',
++        perlasm_scheme   => "ios32",
++    },
+     "darwin64-arm64-cc" => { inherit_from => [ "darwin64-arm64" ] }, # "Historic" alias
+     "darwin64-arm64" => {
+         inherit_from     => [ "darwin-common" ],
+         CFLAGS           => add("-Wall"),
+         cflags           => add("-arch arm64"),
+         lib_cppflags     => add("-DL_ENDIAN"),
+-        bn_ops           => "SIXTY_FOUR_BIT_LONG",
++        bn_ops           => "SIXTY_FOUR_BIT_LONG RC4_CHAR",
+         asm_arch         => 'aarch64',
+         perlasm_scheme   => "ios64",
+     },

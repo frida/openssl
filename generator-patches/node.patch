@@ -1,0 +1,155 @@
+diff --git a/deps/openssl/config/Makefile b/deps/openssl/config/Makefile
+index 5ed49e4d..b40ae2bb 100644
+--- a/deps/openssl/config/Makefile
++++ b/deps/openssl/config/Makefile
+@@ -9,11 +9,11 @@ endif
+ PERL    = perl
+ 
+ # Supported architecture list
+-ASM_ARCHS = aix64-gcc-as BSD-x86 BSD-x86_64 \
+-darwin64-x86_64-cc darwin-i386-cc darwin64-arm64-cc linux-aarch64 \
+-linux-armv4 linux-elf linux-x86_64 \
+-linux-ppc64le linux32-s390x linux64-s390x linux64-mips64\
+-solaris-x86-gcc solaris64-x86_64-gcc VC-WIN64A VC-WIN32
++ASM_ARCHS = aix64-gcc-as BSD-x86 BSD-x86_64 BSD-aarch64 darwin64-x86_64-cc \
++darwin-i386-cc darwin64-arm64-cc darwin-armv7-cc linux-aarch64 linux-armv4 \
++linux-x86 linux-x86_64 linux-ppc64le linux32-s390x linux64-s390x \
++linux64-mips64 linux-mips32 qnx-x86 qnx-arm solaris-x86-gcc \
++solaris64-x86_64-gcc VC-WIN64A VC-WIN32
+ 
+ NO_ASM_ARCHS = VC-WIN64-ARM linux64-riscv64 linux64-loongarch64
+ 
+@@ -24,8 +24,9 @@ CONFIGURE = ./Configure
+ # no-comp: against CRIME attack
+ # no-shared: openssl-cli needs static link
+ # no-afalgeng: old Linux kernel < 4.0 does not support it
++# no-async: maximum portability
+ # enable-ssl-trace: cause the optional SSL_trace API to be built
+-COPTS =  no-comp no-shared no-afalgeng enable-ssl-trace enable-fips
++COPTS =  no-comp no-shared no-afalgeng no-async enable-ssl-trace enable-fips
+ 
+ # disable platform check in Configure
+ NO_WARN_ENV = CONFIGURE_CHECKER_WARN=1
+@@ -37,7 +38,7 @@ OPSSL_SRC = ../openssl
+ # Header files generated with Configure
+ #INT_CFGS = bn_conf.h dso_conf.h
+ INT_CFG_DIR = $(OPSSL_SRC)/include/crypto
+-GEN_HEADERS = asn1 asn1t bio cmp cms configuration conf crmf crypto ct err    \
++GEN_HEADERS = asn1 asn1t bio cmp cms configuration conf core_names crmf crypto ct err    \
+               ess fipskey lhash ocsp opensslv pkcs12 pkcs7 safestack srp ssl  \
+ 	      ui x509 x509v3 x509_vfy conf
+ 
+diff --git a/deps/openssl/config/Makefile_VC-WIN32 b/deps/openssl/config/Makefile_VC-WIN32
+index fdbef723..25b62c3c 100644
+--- a/deps/openssl/config/Makefile_VC-WIN32
++++ b/deps/openssl/config/Makefile_VC-WIN32
+@@ -1,7 +1,7 @@
+ BLDDIR=.
+ PERL=perl
+ RM= rm -f
+-GENERATED_MANDATORY=include/crypto/bn_conf.h include/crypto/dso_conf.h include/openssl/asn1.h include/openssl/asn1t.h include/openssl/bio.h include/openssl/cmp.h include/openssl/cms.h include/openssl/conf.h include/openssl/configuration.h include/openssl/crmf.h include/openssl/crypto.h include/openssl/ct.h include/openssl/err.h include/openssl/ess.h include/openssl/fipskey.h include/openssl/lhash.h include/openssl/ocsp.h include/openssl/opensslv.h include/openssl/pkcs12.h include/openssl/pkcs7.h include/openssl/safestack.h include/openssl/srp.h include/openssl/ssl.h include/openssl/ui.h include/openssl/x509.h include/openssl/x509_vfy.h include/openssl/x509v3.h providers/common/include/prov/der_digests.h providers/common/include/prov/der_dsa.h providers/common/include/prov/der_ec.h providers/common/include/prov/der_ecx.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_sm2.h providers/common/include/prov/der_wrap.h
++GENERATED_MANDATORY=include/crypto/bn_conf.h include/crypto/dso_conf.h include/openssl/asn1.h include/openssl/asn1t.h include/openssl/bio.h include/openssl/cmp.h include/openssl/cms.h include/openssl/conf.h include/openssl/core_names.h include/openssl/configuration.h include/openssl/crmf.h include/openssl/crypto.h include/openssl/ct.h include/openssl/err.h include/openssl/ess.h include/openssl/fipskey.h include/openssl/lhash.h include/openssl/ocsp.h include/openssl/opensslv.h include/openssl/pkcs12.h include/openssl/pkcs7.h include/openssl/safestack.h include/openssl/srp.h include/openssl/ssl.h include/openssl/ui.h include/openssl/x509.h include/openssl/x509_vfy.h include/openssl/x509v3.h providers/common/include/prov/der_digests.h providers/common/include/prov/der_dsa.h providers/common/include/prov/der_ec.h providers/common/include/prov/der_ecx.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_sm2.h providers/common/include/prov/der_wrap.h
+ GENERATED=apps/CA.pl apps/openssl.rc apps/progs.h apps/tsget.pl crypto/aes/aes-586.asm crypto/aes/aesni-x86.asm crypto/aes/vpaes-x86.asm crypto/bf/bf-586.asm crypto/bn/bn-586.asm crypto/bn/co-586.asm crypto/bn/x86-gf2m.asm crypto/bn/x86-mont.asm crypto/buildinf.h crypto/camellia/cmll-x86.asm crypto/chacha/chacha-x86.asm crypto/des/crypt586.asm crypto/des/des-586.asm crypto/ec/ecp_nistz256-x86.asm crypto/md5/md5-586.asm crypto/modes/ghash-x86.asm crypto/poly1305/poly1305-x86.asm crypto/rc4/rc4-586.asm crypto/ripemd/rmd-586.asm crypto/sha/sha1-586.asm crypto/sha/sha256-586.asm crypto/sha/sha512-586.asm crypto/whrlpool/wp-mmx.asm crypto/x86cpuid.asm engines/capi.def engines/dasync.def engines/e_padlock-x86.asm engines/ossltest.def engines/padlock.def libcrypto.def libcrypto.rc libssl.def libssl.rc test/buildtest_aes.c test/buildtest_asn1.c test/buildtest_asn1t.c test/buildtest_async.c test/buildtest_bio.c test/buildtest_blowfish.c test/buildtest_bn.c test/buildtest_buffer.c test/buildtest_camellia.c test/buildtest_cast.c test/buildtest_cmac.c test/buildtest_cms.c test/buildtest_comp.c test/buildtest_conf.c test/buildtest_conf_api.c test/buildtest_crypto.c test/buildtest_ct.c test/buildtest_des.c test/buildtest_dh.c test/buildtest_dsa.c test/buildtest_dtls1.c test/buildtest_e_os2.c test/buildtest_ebcdic.c test/buildtest_ec.c test/buildtest_ecdh.c test/buildtest_ecdsa.c test/buildtest_engine.c test/buildtest_evp.c test/buildtest_hmac.c test/buildtest_idea.c test/buildtest_kdf.c test/buildtest_lhash.c test/buildtest_md4.c test/buildtest_md5.c test/buildtest_mdc2.c test/buildtest_modes.c test/buildtest_obj_mac.c test/buildtest_objects.c test/buildtest_ocsp.c test/buildtest_opensslv.c test/buildtest_ossl_typ.c test/buildtest_pem.c test/buildtest_pem2.c test/buildtest_pkcs12.c test/buildtest_pkcs7.c test/buildtest_rand.c test/buildtest_rand_drbg.c test/buildtest_rc2.c test/buildtest_rc4.c test/buildtest_ripemd.c test/buildtest_rsa.c test/buildtest_safestack.c test/buildtest_seed.c test/buildtest_sha.c test/buildtest_srp.c test/buildtest_srtp.c test/buildtest_ssl.c test/buildtest_ssl2.c test/buildtest_stack.c test/buildtest_store.c test/buildtest_symhacks.c test/buildtest_tls1.c test/buildtest_ts.c test/buildtest_txt_db.c test/buildtest_ui.c test/buildtest_whrlpool.c test/buildtest_x509.c test/buildtest_x509_vfy.c test/buildtest_x509v3.c tools/c_rehash.pl providers/common/der/der_digests_gen.c providers/common/der/der_dsa_gen.c providers/common/der/der_ec_gen.c providers/common/der/der_ecx_gen.c providers/common/der/der_rsa_gen.c providers/common/der/der_sm2_gen.c providers/common/der/der_wrap_gen.c
+ 
+ # Variables starting with LIB_ are used to build library object files
+@@ -63,6 +63,9 @@ include/openssl/conf.h: include/openssl/conf.h.in configdata.pm
+ include/openssl/conf.h: include/openssl/conf.h.in configdata.pm
+ 	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
+ 	    "-omakefile" "include/openssl/conf.h.in" > $@
++include/openssl/core_names.h: include/openssl/core_names.h.in configdata.pm
++	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
++	    "-omakefile" "include/openssl/core_names.h.in" > $@
+ include/openssl/configuration.h: include/openssl/configuration.h.in configdata.pm
+ 	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
+ 	    "-omakefile" "include/openssl/configuration.h.in" > $@
+diff --git a/deps/openssl/config/Makefile_VC-WIN64-ARM b/deps/openssl/config/Makefile_VC-WIN64-ARM
+index 52fc9cd9..66fcf1d9 100644
+--- a/deps/openssl/config/Makefile_VC-WIN64-ARM
++++ b/deps/openssl/config/Makefile_VC-WIN64-ARM
+@@ -16,7 +16,7 @@ MINOR=1.1
+ 
+ SHLIB_VERSION_NUMBER=1.1
+ 
+-GENERATED_MANDATORY=include/crypto/bn_conf.h include/crypto/dso_conf.h include/openssl/asn1.h include/openssl/asn1t.h include/openssl/bio.h include/openssl/cmp.h include/openssl/cms.h include/openssl/conf.h include/openssl/configuration.h include/openssl/crmf.h include/openssl/crypto.h include/openssl/ct.h include/openssl/err.h include/openssl/ess.h include/openssl/fipskey.h include/openssl/lhash.h include/openssl/ocsp.h include/openssl/opensslv.h include/openssl/pkcs12.h include/openssl/pkcs7.h include/openssl/safestack.h include/openssl/srp.h include/openssl/ssl.h include/openssl/ui.h include/openssl/x509.h include/openssl/x509_vfy.h include/openssl/x509v3.h providers/common/include/prov/der_digests.h providers/common/include/prov/der_dsa.h providers/common/include/prov/der_ec.h providers/common/include/prov/der_ecx.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_sm2.h providers/common/include/prov/der_wrap.h
++GENERATED_MANDATORY=include/crypto/bn_conf.h include/crypto/dso_conf.h include/openssl/asn1.h include/openssl/asn1t.h include/openssl/bio.h include/openssl/cmp.h include/openssl/cms.h include/openssl/conf.h include/openssl/core_names.h include/openssl/configuration.h include/openssl/crmf.h include/openssl/crypto.h include/openssl/ct.h include/openssl/err.h include/openssl/ess.h include/openssl/fipskey.h include/openssl/lhash.h include/openssl/ocsp.h include/openssl/opensslv.h include/openssl/pkcs12.h include/openssl/pkcs7.h include/openssl/safestack.h include/openssl/srp.h include/openssl/ssl.h include/openssl/ui.h include/openssl/x509.h include/openssl/x509_vfy.h include/openssl/x509v3.h providers/common/include/prov/der_digests.h providers/common/include/prov/der_dsa.h providers/common/include/prov/der_ec.h providers/common/include/prov/der_ecx.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_sm2.h providers/common/include/prov/der_wrap.h
+ GENERATED=crypto/buildinf.h apps/progs.h providers/common/der/der_digests_gen.c providers/common/der/der_dsa_gen.c providers/common/der/der_ec_gen.c providers/common/der/der_ecx_gen.c providers/common/der/der_rsa_gen.c providers/common/der/der_sm2_gen.c providers/common/der/der_wrap_gen.c apps/progs.c providers/common/der/der_digests_gen.c providers/common/der/der_dsa_gen.c providers/common/der/der_ec_gen.c providers/common/der/der_ecx_gen.c providers/common/der/der_rsa_gen.c providers/common/der/der_sm2_gen.c providers/common/der/der_wrap_gen.c
+ 
+ INSTALL_LIBS="libcrypto.lib" "libssl.lib"
+@@ -166,6 +166,9 @@ include/openssl/conf.h: include/openssl/conf.h.in configdata.pm
+ include/openssl/conf.h: include/openssl/conf.h.in configdata.pm
+ 	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
+ 	    "-omakefile" "include/openssl/conf.h.in" > $@
++include/openssl/core_names.h: include/openssl/core_names.h.in configdata.pm
++	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
++	    "-omakefile" "include/openssl/core_names.h.in" > $@
+ include/openssl/configuration.h: include/openssl/configuration.h.in configdata.pm
+ 	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
+ 	    "-omakefile" "include/openssl/configuration.h.in" > $@
+diff --git a/deps/openssl/config/Makefile_VC-WIN64A b/deps/openssl/config/Makefile_VC-WIN64A
+index d8fde1e0..ff441a7c 100644
+--- a/deps/openssl/config/Makefile_VC-WIN64A
++++ b/deps/openssl/config/Makefile_VC-WIN64A
+@@ -5,8 +5,8 @@ RM= rm -f
+ AS=nasm
+ ASFLAGS=-g
+ 
+-GENERATED_MANDATORY=include/crypto/bn_conf.h include/crypto/dso_conf.h include/openssl/asn1.h include/openssl/asn1t.h include/openssl/bio.h include/openssl/cmp.h include/openssl/cms.h include/openssl/conf.h include/openssl/configuration.h include/openssl/crmf.h include/openssl/crypto.h include/openssl/ct.h include/openssl/err.h include/openssl/ess.h include/openssl/fipskey.h include/openssl/lhash.h include/openssl/ocsp.h include/openssl/opensslv.h include/openssl/pkcs12.h include/openssl/pkcs7.h include/openssl/safestack.h include/openssl/srp.h include/openssl/ssl.h include/openssl/ui.h include/openssl/x509.h include/openssl/x509_vfy.h include/openssl/x509v3.h providers/common/include/prov/der_digests.h providers/common/include/prov/der_dsa.h providers/common/include/prov/der_ec.h providers/common/include/prov/der_ecx.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_sm2.h providers/common/include/prov/der_wrap.h
+-GENERATED=apps/CA.pl apps/openssl.rc apps/progs.h apps/tsget.pl crypto/aes/aes-x86_64.asm crypto/aes/aesni-mb-x86_64.asm crypto/aes/aesni-sha1-x86_64.asm crypto/aes/aesni-sha256-x86_64.asm crypto/aes/aesni-x86_64.asm crypto/aes/bsaes-x86_64.asm crypto/aes/vpaes-x86_64.asm crypto/bn/rsaz-avx2.asm crypto/bn/rsaz-x86_64.asm crypto/bn/x86_64-gf2m.asm crypto/bn/x86_64-mont.asm crypto/bn/x86_64-mont5.asm crypto/buildinf.h crypto/camellia/cmll-x86_64.asm crypto/chacha/chacha-x86_64.asm crypto/ec/ecp_nistz256-x86_64.asm crypto/ec/x25519-x86_64.asm crypto/md5/md5-x86_64.asm crypto/modes/aesni-gcm-x86_64.asm crypto/modes/ghash-x86_64.asm crypto/poly1305/poly1305-x86_64.asm crypto/rc4/rc4-md5-x86_64.asm crypto/rc4/rc4-x86_64.asm crypto/sha/keccak1600-x86_64.asm crypto/sha/sha1-mb-x86_64.asm crypto/sha/sha1-x86_64.asm crypto/sha/sha256-mb-x86_64.asm crypto/sha/sha256-x86_64.asm crypto/sha/sha512-x86_64.asm crypto/uplink-x86_64.asm crypto/whrlpool/wp-x86_64.asm crypto/x86_64cpuid.asm engines/e_padlock-x86_64.asm libcrypto.def libcrypto.rc libssl.def libssl.rc test/buildtest_aes.c test/buildtest_asn1.c test/buildtest_asn1t.c test/buildtest_async.c test/buildtest_bio.c test/buildtest_blowfish.c test/buildtest_bn.c test/buildtest_buffer.c test/buildtest_camellia.c test/buildtest_cast.c test/buildtest_cmac.c test/buildtest_cms.c test/buildtest_comp.c test/buildtest_conf.c test/buildtest_conf_api.c test/buildtest_crypto.c test/buildtest_ct.c test/buildtest_des.c test/buildtest_dh.c test/buildtest_dsa.c test/buildtest_dtls1.c test/buildtest_e_os2.c test/buildtest_ebcdic.c test/buildtest_ec.c test/buildtest_ecdh.c test/buildtest_ecdsa.c test/buildtest_engine.c test/buildtest_evp.c test/buildtest_hmac.c test/buildtest_idea.c test/buildtest_kdf.c test/buildtest_lhash.c test/buildtest_md4.c test/buildtest_md5.c test/buildtest_mdc2.c test/buildtest_modes.c test/buildtest_obj_mac.c test/buildtest_objects.c test/buildtest_ocsp.c test/buildtest_opensslv.c test/buildtest_ossl_typ.c test/buildtest_pem.c test/buildtest_pem2.c test/buildtest_pkcs12.c test/buildtest_pkcs7.c test/buildtest_rand.c test/buildtest_rand_drbg.c test/buildtest_rc2.c test/buildtest_rc4.c test/buildtest_ripemd.c test/buildtest_rsa.c test/buildtest_safestack.c test/buildtest_seed.c test/buildtest_sha.c test/buildtest_srp.c test/buildtest_srtp.c test/buildtest_ssl.c test/buildtest_ssl2.c test/buildtest_stack.c test/buildtest_store.c test/buildtest_symhacks.c test/buildtest_tls1.c test/buildtest_ts.c test/buildtest_txt_db.c test/buildtest_ui.c test/buildtest_whrlpool.c test/buildtest_x509.c test/buildtest_x509_vfy.c test/buildtest_x509v3.c tools/c_rehash.pl providers/common/der/der_digests_gen.c providers/common/der/der_dsa_gen.c providers/common/der/der_ec_gen.c providers/common/der/der_ecx_gen.c providers/common/der/der_rsa_gen.c providers/common/der/der_sm2_gen.c providers/common/der/der_wrap_gen.c 
++GENERATED_MANDATORY=include/crypto/bn_conf.h include/crypto/dso_conf.h include/openssl/asn1.h include/openssl/asn1t.h include/openssl/bio.h include/openssl/cmp.h include/openssl/cms.h include/openssl/conf.h include/openssl/core_names.h include/openssl/configuration.h include/openssl/crmf.h include/openssl/crypto.h include/openssl/ct.h include/openssl/err.h include/openssl/ess.h include/openssl/fipskey.h include/openssl/lhash.h include/openssl/ocsp.h include/openssl/opensslv.h include/openssl/pkcs12.h include/openssl/pkcs7.h include/openssl/safestack.h include/openssl/srp.h include/openssl/ssl.h include/openssl/ui.h include/openssl/x509.h include/openssl/x509_vfy.h include/openssl/x509v3.h providers/common/include/prov/der_digests.h providers/common/include/prov/der_dsa.h providers/common/include/prov/der_ec.h providers/common/include/prov/der_ecx.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_rsa.h providers/common/include/prov/der_sm2.h providers/common/include/prov/der_wrap.h
++GENERATED=apps/CA.pl apps/openssl.rc apps/progs.h apps/tsget.pl crypto/aes/aes-x86_64.asm crypto/aes/aesni-mb-x86_64.asm crypto/aes/aesni-sha1-x86_64.asm crypto/aes/aesni-sha256-x86_64.asm crypto/aes/aesni-x86_64.asm crypto/aes/bsaes-x86_64.asm crypto/aes/vpaes-x86_64.asm crypto/bn/rsaz-avx2.asm crypto/bn/rsaz-x86_64.asm crypto/bn/x86_64-gf2m.asm crypto/bn/x86_64-mont.asm crypto/bn/x86_64-mont5.asm crypto/buildinf.h crypto/camellia/cmll-x86_64.asm crypto/chacha/chacha-x86_64.asm crypto/ec/ecp_nistz256-x86_64.asm crypto/ec/x25519-x86_64.asm crypto/md5/md5-x86_64.asm crypto/modes/aesni-gcm-x86_64.asm crypto/modes/ghash-x86_64.asm crypto/poly1305/poly1305-x86_64.asm crypto/rc4/rc4-md5-x86_64.asm crypto/rc4/rc4-x86_64.asm crypto/sha/keccak1600-x86_64.asm crypto/sha/sha1-mb-x86_64.asm crypto/sha/sha1-x86_64.asm crypto/sha/sha256-mb-x86_64.asm crypto/sha/sha256-x86_64.asm crypto/sha/sha512-x86_64.asm crypto/uplink-x86_64.asm crypto/whrlpool/wp-x86_64.asm crypto/x86_64cpuid.asm engines/e_padlock-x86_64.asm libcrypto.def libcrypto.rc libssl.def libssl.rc test/buildtest_aes.c test/buildtest_asn1.c test/buildtest_asn1t.c test/buildtest_async.c test/buildtest_bio.c test/buildtest_blowfish.c test/buildtest_bn.c test/buildtest_buffer.c test/buildtest_camellia.c test/buildtest_cast.c test/buildtest_cmac.c test/buildtest_cms.c test/buildtest_comp.c test/buildtest_conf.c test/buildtest_conf_api.c test/buildtest_crypto.c test/buildtest_ct.c test/buildtest_des.c test/buildtest_dh.c test/buildtest_dsa.c test/buildtest_dtls1.c test/buildtest_e_os2.c test/buildtest_ebcdic.c test/buildtest_ec.c test/buildtest_ecdh.c test/buildtest_ecdsa.c test/buildtest_engine.c test/buildtest_evp.c test/buildtest_hmac.c test/buildtest_idea.c test/buildtest_kdf.c test/buildtest_lhash.c test/buildtest_md4.c test/buildtest_md5.c test/buildtest_mdc2.c test/buildtest_modes.c test/buildtest_obj_mac.c test/buildtest_objects.c test/buildtest_ocsp.c test/buildtest_opensslv.c test/buildtest_ossl_typ.c test/buildtest_pem.c test/buildtest_pem2.c test/buildtest_pkcs12.c test/buildtest_pkcs7.c test/buildtest_rand.c test/buildtest_rand_drbg.c test/buildtest_rc2.c test/buildtest_rc4.c test/buildtest_ripemd.c test/buildtest_rsa.c test/buildtest_safestack.c test/buildtest_seed.c test/buildtest_sha.c test/buildtest_srp.c test/buildtest_srtp.c test/buildtest_ssl.c test/buildtest_ssl2.c test/buildtest_stack.c test/buildtest_store.c test/buildtest_symhacks.c test/buildtest_tls1.c test/buildtest_ts.c test/buildtest_txt_db.c test/buildtest_ui.c test/buildtest_whrlpool.c test/buildtest_x509.c test/buildtest_x509_vfy.c test/buildtest_x509v3.c tools/c_rehash.pl providers/common/der/der_digests_gen.c providers/common/der/der_dsa_gen.c providers/common/der/der_ec_gen.c providers/common/der/der_ecx_gen.c providers/common/der/der_rsa_gen.c providers/common/der/der_sm2_gen.c providers/common/der/der_wrap_gen.c
+ 
+ PERLASM_SCHEME= auto
+ APPS_OPENSSL=apps/openssl
+@@ -39,6 +39,9 @@ include/openssl/conf.h: include/openssl/conf.h.in configdata.pm
+ include/openssl/conf.h: include/openssl/conf.h.in configdata.pm
+ 	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
+ 	    "-omakefile" "include/openssl/conf.h.in" > $@
++include/openssl/core_names.h: include/openssl/core_names.h.in configdata.pm
++	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
++	    "-omakefile" "include/openssl/core_names.h.in" > $@
+ include/openssl/configuration.h: include/openssl/configuration.h.in configdata.pm
+ 	"$(PERL)" "-I$(BLDDIR)" -Mconfigdata "util/dofile.pl" \
+ 	    "-omakefile" "include/openssl/configuration.h.in" > $@
+diff --git a/deps/openssl/config/generate_gypi.pl b/deps/openssl/config/generate_gypi.pl
+index be7d357f..bd5ad24d 100755
+--- a/deps/openssl/config/generate_gypi.pl
++++ b/deps/openssl/config/generate_gypi.pl
+@@ -361,9 +361,37 @@ open(CLGYPI, "> ./archs/$arch/$asm/openssl-cl.gypi");
+ print CLGYPI "$clgypi";
+ close(CLGYPI);
+ 
++# Create meson.build
++my $mtemplate =
++    Text::Template->new(TYPE => 'FILE',
++                        SOURCE => 'meson.build.tmpl',
++                        DELIMITERS => [ "%%-", "-%%" ]
++                        );
++
++my $meson = $mtemplate->fill_in(
++    HASH => {
++        libssl_srcs => \@libssl_srcs,
++        libcrypto_srcs => \@libcrypto_srcs,
++        lib_defines => \@lib_defines,
++        generated_srcs => \@generated_srcs,
++        apps_openssl_srcs => \@apps_openssl_srcs,
++        libapps_srcs => \@libapps_srcs,
++        config => \%config,
++        target => \%target,
++        cflags => \@cflags,
++        asm => \$asm,
++        arch => \$arch,
++        lib_cppflags => \@lib_cppflags,
++        is_win => \$is_win,
++    });
++
++open(MESON, "> ./archs/$arch/$asm/meson.build");
++print MESON "$meson";
++close(MESON);
++
+ # Clean Up
+ my $cmd2 ="cd $src_dir; make -f $makefile clean; make -f $makefile distclean;" .
+-    "git clean -f $src_dir/crypto";
++    "git clean -f crypto";
+ system($cmd2) == 0 or die "Error in system($cmd2)";
+ 
+ 
