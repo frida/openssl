@@ -380,6 +380,8 @@ libcrypto_dep = declare_dependency(
   link_with: libcrypto_lib,
 )
 
+meson.override_dependency('libcrypto', libcrypto_dep)
+
 libssl_lib = library(
   'ssl',
   dependencies: dependencies + [libcrypto_dep],
@@ -395,9 +397,13 @@ libssl_dep = declare_dependency(
   link_with: libssl_lib,
 )
 
+meson.override_dependency('libssl', libssl_dep)
+
 openssl_dep = declare_dependency(
   dependencies: [libcrypto_dep, libssl_dep],
 )
+
+meson.override_dependency('openssl', openssl_dep)
 
 openssl_cli = executable(
   'openssl',
