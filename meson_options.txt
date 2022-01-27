@@ -3,3 +3,9 @@ option('asm',
   value: 'auto',
   description: 'Enable platform-specific assembly optimizations'
 )
+
+option('cli',
+  type: 'feature',
+  value: 'auto',
+  description: 'Whether to build CLI tools'
+)

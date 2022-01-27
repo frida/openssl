@@ -403,12 +403,19 @@ openssl_dep = declare_dependency(
 
 meson.override_dependency('openssl', openssl_dep)
 
-openssl_cli = executable(
-  'openssl',
-  build_by_default: false,
-  dependencies: dependencies + [openssl_dep],
-  sources: openssl_cli_sources,
-  include_directories: include_directories,
-  c_args: c_args,
-  install: true,
-)
+cli_option = get_option('cli')
+if cli_option.auto()
+  cli_enabled = not meson.is_subproject()
+else
+  cli_enabled = cli_option.enabled()
+endif
+if cli_enabled
+  openssl_cli = executable(
+    'openssl',
+    dependencies: dependencies + [openssl_dep],
+    sources: openssl_cli_sources,
+    include_directories: include_directories,
+    c_args: c_args,
+    install: true,
+  )
+endif
