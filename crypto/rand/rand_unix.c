@@ -35,6 +35,7 @@
 # include <sys/param.h>
 #endif
 #if defined(__APPLE__)
+# include <CommonCrypto/CommonCrypto.h>
 # include <CommonCrypto/CommonRandom.h>
 #endif
 
