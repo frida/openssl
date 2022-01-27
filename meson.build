@@ -9,6 +9,9 @@ project(
   ],
 )
 
+library_version = '1.1.1'
+library_soversion = '1.1'
+
 # Make sure to generate configs in case they are not already
 fs = import('fs')
 if not fs.exists('generated-config')
@@ -492,6 +495,8 @@ endforeach
 install_headers(public_headers, subdir: 'openssl')
 
 libcrypto_lib = library('crypto',
+  version: library_version,
+  soversion: library_soversion,
   dependencies: dependencies,
   sources: libcrypto_sources,
   include_directories: internal_incdirs,
@@ -516,6 +521,8 @@ pkg.generate(libcrypto_lib,
 meson.override_dependency('libcrypto', libcrypto_dep)
 
 libssl_lib = library('ssl',
+  version: library_version,
+  soversion: library_soversion,
   dependencies: dependencies + [libcrypto_dep],
   sources: libssl_sources,
   include_directories: internal_incdirs,
