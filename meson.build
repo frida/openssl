@@ -496,6 +496,14 @@ libcrypto_dep = declare_dependency(
   link_with: libcrypto_lib,
 )
 
+pkg = import('pkgconfig')
+pkg.generate(libcrypto_lib,
+  filebase: 'libcrypto',
+  name: 'OpenSSL-libcrypto',
+  description: 'OpenSSL cryptography library',
+  variables: ['enginesdir=${libdir}/engines-1.1'],
+)
+
 meson.override_dependency('libcrypto', libcrypto_dep)
 
 libssl_lib = library('ssl',
@@ -512,10 +520,23 @@ libssl_dep = declare_dependency(
   link_with: libssl_lib,
 )
 
+pkg.generate(libssl_lib,
+  filebase: 'libssl',
+  name: 'OpenSSL-libssl',
+  description: 'Secure Sockets Layer and cryptography libraries',
+)
+
 meson.override_dependency('libssl', libssl_dep)
 
 openssl_dep = declare_dependency(
   dependencies: [libcrypto_dep, libssl_dep],
+)
+
+pkg.generate(
+  filebase: 'openssl',
+  name: 'OpenSSL',
+  description: 'Secure Sockets Layer and cryptography libraries and tools',
+  requires: ['libssl', 'libcrypto']
 )
 
 meson.override_dependency('openssl', openssl_dep)
