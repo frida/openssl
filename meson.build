@@ -2,7 +2,7 @@ project(
   'openssl',
   'c',
   version: '1.1.1l',
-  license : 'Apache-2.0',
+  license: 'Apache-2.0',
   meson_version: '>= 0.55',
   default_options: [
     'warning_level=1',
@@ -331,7 +331,7 @@ else
   endif
 endif
 
-foreach library: openssl_libraries
+foreach library : openssl_libraries
   # MSVC fails with "ERROR: C static library 'ws2_32' not found" when `static` is specified at all
   if compiler.get_id() == 'msvc'
     dependencies += [
@@ -365,8 +365,7 @@ c_args += openssl_cflags
 
 include_directories += openssl_include_directories
 
-libcrypto_lib = library(
-  'crypto',
+libcrypto_lib = library('crypto',
   dependencies: dependencies,
   sources: libcrypto_sources,
   include_directories: include_directories,
@@ -382,8 +381,7 @@ libcrypto_dep = declare_dependency(
 
 meson.override_dependency('libcrypto', libcrypto_dep)
 
-libssl_lib = library(
-  'ssl',
+libssl_lib = library('ssl',
   dependencies: dependencies + [libcrypto_dep],
   sources: libssl_sources,
   include_directories: include_directories,
