@@ -20,14 +20,6 @@ if not fs.exists('generated-config')
   )
 endif
 
-include_directories = [
-  'include',
-  'crypto',
-  'crypto/modes',
-  'crypto/ec/curve448',
-  'crypto/ec/curve448/arch_32',
-]
-
 compiler = meson.get_compiler('c')
 
 dependencies = [
@@ -363,7 +355,24 @@ endforeach
 
 c_args += openssl_cflags
 
-include_directories += openssl_include_directories
+internal_incdirs = [
+  'include',
+  'crypto',
+  'crypto/modes',
+  'crypto/ec/curve448',
+  'crypto/ec/curve448/arch_32',
+]
+internal_incdirs += openssl_include_directories
+
+public_incdirs = [
+  'include',
+]
+foreach d : openssl_include_directories
+  if d.endswith('include')
+    public_incdirs += d
+    break
+  endif
+endforeach
 
 public_header_names = [
   'aes.h',
@@ -470,28 +479,28 @@ public_header_names = [
   'x509v3.h',
   'x509v3err.h',
 ]
-headers = []
+public_headers = []
 foreach h : public_header_names
-  headers += 'include' / 'openssl' / h
+  public_headers += 'include' / 'openssl' / h
 endforeach
 foreach d : openssl_include_directories
   if d.endswith('include')
-    headers += d + '/openssl/opensslconf.h'
+    public_headers += d + '/openssl/opensslconf.h'
     break
   endif
 endforeach
-install_headers(headers, subdir: 'openssl')
+install_headers(public_headers, subdir: 'openssl')
 
 libcrypto_lib = library('crypto',
   dependencies: dependencies,
   sources: libcrypto_sources,
-  include_directories: include_directories,
+  include_directories: internal_incdirs,
   c_args: c_args,
   install: true,
 )
 
 libcrypto_dep = declare_dependency(
-  include_directories: include_directories,
+  include_directories: public_incdirs,
   dependencies: dependencies,
   link_with: libcrypto_lib,
 )
@@ -509,13 +518,13 @@ meson.override_dependency('libcrypto', libcrypto_dep)
 libssl_lib = library('ssl',
   dependencies: dependencies + [libcrypto_dep],
   sources: libssl_sources,
-  include_directories: include_directories,
+  include_directories: internal_incdirs,
   c_args: c_args,
   install: true,
 )
 
 libssl_dep = declare_dependency(
-  include_directories: include_directories,
+  include_directories: public_incdirs,
   dependencies: dependencies + [libcrypto_dep],
   link_with: libssl_lib,
 )
@@ -552,7 +561,7 @@ if cli_enabled
     'openssl',
     dependencies: dependencies + [openssl_dep],
     sources: openssl_cli_sources,
-    include_directories: include_directories,
+    include_directories: internal_incdirs,
     c_args: c_args,
     install: true,
   )
