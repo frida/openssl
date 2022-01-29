@@ -199,7 +199,7 @@ extern "C" {
 # undef THIRTY_TWO_BIT
 #endif
 
-#define RC4_INT unsigned int
+#define RC4_INT unsigned char
 
 #ifdef  __cplusplus
 }

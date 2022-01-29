@@ -19,13 +19,16 @@ rm -rf generated-config
 pushd node/deps/openssl
 
 # Apply patch that will allow us generate `meson.build` for different targets
-patch -u config/generate_gypi.pl -i ../../../generate_gypi.pl.patch
+patch -p3 -i ../../../generator-patches/node.patch
 # Copy `meson.build` template file
 cp ../../../meson.build.tmpl config/
 
 # Swap bundled OpenSSL in Node.js with upstream
 rm -rf openssl
 git clone --depth 1 --branch "OpenSSL_$(echo $openssl_version | tr . _)" https://github.com/openssl/openssl.git
+pushd openssl
+patch -p1 -i ../../../../generator-patches/openssl.patch
+popd
 
 rm -rf config/archs
 LANG=C make -C config
