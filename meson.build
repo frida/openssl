@@ -72,6 +72,8 @@ if new_gas_or_nasm
     arch_subdir = 'linux-armv4'
   elif host_machine.cpu_family() == 'aarch64' and host_machine.system() in ['linux', 'android']
     arch_subdir = 'linux-aarch64'
+  elif host_machine.cpu_family() == 'aarch64' and host_machine.system() in ['dragonfly', 'freebsd', 'netbsd', 'openbsd']
+    arch_subdir = 'BSD-generic64'
   elif host_machine.cpu_family() == 'x86' and host_machine.system() in ['dragonfly', 'freebsd', 'netbsd', 'openbsd']
     arch_subdir = 'BSD-x86'
   elif host_machine.cpu_family() == 'x86' and host_machine.system() in ['linux', 'android']
@@ -159,6 +161,8 @@ elif any_gas_or_nasm
     arch_subdir = 'linux-armv4'
   elif host_machine.cpu_family() == 'aarch64' and host_machine.system() in ['linux', 'android']
     arch_subdir = 'linux-aarch64'
+  elif host_machine.cpu_family() == 'aarch64' and host_machine.system() in ['dragonfly', 'freebsd', 'netbsd', 'openbsd']
+    arch_subdir = 'BSD-generic64'
   elif host_machine.cpu_family() == 'x86' and host_machine.system() in ['dragonfly', 'freebsd', 'netbsd', 'openbsd']
     arch_subdir = 'BSD-x86'
   elif host_machine.cpu_family() == 'x86' and host_machine.system() in ['linux', 'android']
@@ -249,6 +253,8 @@ if asm == 'no-asm'
     arch_subdir = 'linux-armv4'
   elif host_machine.cpu_family() == 'aarch64' and host_machine.system() in ['linux', 'android']
     arch_subdir = 'linux-aarch64'
+  elif host_machine.cpu_family() == 'aarch64' and host_machine.system() in ['dragonfly', 'freebsd', 'netbsd', 'openbsd']
+    arch_subdir = 'BSD-generic64'
   elif host_machine.cpu_family() == 'x86' and host_machine.system() in ['dragonfly', 'freebsd', 'netbsd', 'openbsd']
     arch_subdir = 'BSD-x86'
   elif host_machine.cpu_family() == 'x86' and host_machine.system() in ['linux', 'android']
