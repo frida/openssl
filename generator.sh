@@ -27,7 +27,9 @@ cp ../../../meson.build.tmpl config/
 rm -rf openssl
 git clone --depth 1 --branch "OpenSSL_$(echo $openssl_version | tr . _)" https://github.com/openssl/openssl.git
 pushd openssl
-patch -p1 -i ../../../../generator-patches/openssl.patch
+for topic in darwin qnx; do
+  patch -p1 -i ../../../../generator-patches/openssl-$topic.patch
+done
 popd
 
 rm -rf config/archs

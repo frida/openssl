@@ -1,0 +1,170 @@
+diff --git a/Configurations/10-main.conf b/Configurations/10-main.conf
+index 61c6689a..80378bed 100644
+--- a/Configurations/10-main.conf
++++ b/Configurations/10-main.conf
+@@ -1019,6 +1019,36 @@ my %targets = (
+         thread_scheme    => "(unknown)",
+     },
+ 
++    "qnx-common" => {
++        inherit_from     => [ "BASE_unix" ],
++        template         => 1,
++        CFLAGS           => picker(default => "-Wall",
++                                   debug   => "-O0 -g",
++                                   release => "-O2"),
++        LDFLAGS          => "-static-libgcc",
++        ex_libs          => add("-lsocket"),
++        dso_scheme       => "dlfcn",
++        thread_scheme    => "pthreads",
++        shared_target    => "bsd-gcc-shared",
++        shared_extension => ".so.\$(SHLIB_VERSION_NUMBER)",
++        shared_cflag     => "-fPIC",
++    },
++    "qnx-x86" => {
++        inherit_from     => [ "qnx-common", asm("x86_elf_asm") ],
++        CC               => sub { "i486-pc-nto-qnx" . env("QNX_VERSION") . "-gcc" },
++        cflags           => add("--sysroot=\"" . env("QNX_TARGET") . "/x86\" -march=i686"),
++    },
++    "qnx-arm" => {
++        inherit_from     => [ "qnx-common", asm("armv4_asm") ],
++        CC               => sub { "arm-unknown-nto-qnx" . env("QNX_VERSION") . "-gcc" },
++        cflags           => add("--sysroot=\"" . env("QNX_TARGET") . "/armle\" -march=armv6 -mno-unaligned-access"),
++    },
++    "qnx-armeabi" => {
++        inherit_from     => [ "qnx-common", asm("armv4_asm") ],
++        CC               => sub { "arm-unknown-nto-qnx" . env("QNX_VERSION") . "eabi-gcc" },
++        cflags           => add("--sysroot=\"" . env("QNX_TARGET") . "/armle-v7\" -march=armv7-a -mno-unaligned-access"),
++    },
++
+ #### SCO/Caldera targets.
+ #
+ # Originally we had like unixware-*, unixware-*-pentium, unixware-*-p6, etc.
+diff --git a/config b/config
+index 26225ca2..5fffac91 100755
+--- a/config
++++ b/config
+@@ -260,6 +260,24 @@ case "${SYSTEM}:${RELEASE}:${VERSION}:${MACHINE}" in
+ 	exit 0
+ 	;;
+ 
++    QNX:*)
++	case "$RELEASE" in
++	    4*)
++		echo "${MACHINE}-whatever-qnx4";
++		;;
++	    6*)
++		echo "${MACHINE}-whatever-qnx6";
++		;;
++	    7*)
++		echo "${MACHINE}-whatever-qnx7";
++		;;
++	    *)
++		echo "${MACHINE}-whatever-qnx";
++		;;
++	esac
++	exit 0
++	;;
++
+     SunOS:5.*)
+ 	echo "${MACHINE}-whatever-solaris2"; exit 0
+ 	;;
+@@ -507,6 +525,10 @@ case "$GUESSOS" in
+ 	OUT="iphoneos-cross" ;;
+   arm64-*-iphoneos|*-*-ios64)
+ 	OUT="ios64-cross" ;;
++  x86pc-*-qnx*)
++	OUT="qnx-x86" ;;
++  *-*-qnx*)
++	OUT="qnx-armeabi" ;;
+   alpha-*-linux2)
+         ISA=`awk '/cpu model/{print$4;exit(0);}' /proc/cpuinfo`
+ 	OUT="linux-alpha-$CC"
+diff --git a/crypto/async/arch/async_posix.c b/crypto/async/arch/async_posix.c
+index 95678d4f..533a0a5a 100644
+--- a/crypto/async/arch/async_posix.c
++++ b/crypto/async/arch/async_posix.c
+@@ -21,11 +21,15 @@ int ASYNC_is_capable(void)
+ {
+     ucontext_t ctx;
+ 
++#ifndef __QNX__
+     /*
+      * Some platforms provide getcontext() but it does not work (notably
+      * MacOSX PPC64). Check for a working getcontext();
+      */
+     return getcontext(&ctx) == 0;
++#else
++    return 0;
++#endif
+ }
+ 
+ void async_local_cleanup(void)
+@@ -35,6 +39,7 @@ void async_local_cleanup(void)
+ int async_fibre_makecontext(async_fibre *fibre)
+ {
+     fibre->env_init = 0;
++#ifndef __QNX__
+     if (getcontext(&fibre->fibre) == 0) {
+         fibre->fibre.uc_stack.ss_sp = OPENSSL_malloc(STACKSIZE);
+         if (fibre->fibre.uc_stack.ss_sp != NULL) {
+@@ -43,7 +48,9 @@ int async_fibre_makecontext(async_fibre *fibre)
+             makecontext(&fibre->fibre, async_start_func, 0);
+             return 1;
+         }
+-    } else {
++    } else
++#endif
++    {
+         fibre->fibre.uc_stack.ss_sp = NULL;
+     }
+     return 0;
+diff --git a/crypto/async/arch/async_posix.h b/crypto/async/arch/async_posix.h
+index 873c0316..2b1f2487 100644
+--- a/crypto/async/arch/async_posix.h
++++ b/crypto/async/arch/async_posix.h
+@@ -36,6 +36,7 @@ typedef struct async_fibre_st {
+ 
+ static ossl_inline int async_fibre_swapcontext(async_fibre *o, async_fibre *n, int r)
+ {
++#ifndef __QNX__
+     o->env_init = 1;
+ 
+     if (!r || !_setjmp(o->env)) {
+@@ -46,6 +47,9 @@ static ossl_inline int async_fibre_swapcontext(async_fibre *o, async_fibre *n, i
+     }
+ 
+     return 1;
++#else
++    return 0;
++#endif
+ }
+ 
+ #  define async_fibre_init_dispatcher(d)
+diff --git a/include/internal/sockets.h b/include/internal/sockets.h
+index 39186efe..170d6431 100644
+--- a/include/internal/sockets.h
++++ b/include/internal/sockets.h
+@@ -85,7 +85,7 @@ struct servent *PASCAL getservbyname(const char *, const char *);
+ #   include <netinet/tcp.h>
+ #  endif
+ 
+-#  ifdef OPENSSL_SYS_AIX
++#  if defined(OPENSSL_SYS_AIX) || defined(__QNX__)
+ #   include <sys/select.h>
+ #  endif
+ 
+diff --git a/util/shlib_wrap.sh.in b/util/shlib_wrap.sh.in
+index eac70ed9..8599b25e 100755
+--- a/util/shlib_wrap.sh.in
++++ b/util/shlib_wrap.sh.in
+@@ -120,8 +120,8 @@ if [ -f "$LIBCRYPTOSO" -a -z "$preload_var" ]; then
+ 	# it into a script makes it possible to do so on multi-ABI
+ 	# platforms.
+ 	case "$SYSNAME" in
+-	*BSD)	LD_PRELOAD="$LIBCRYPTOSO:$LIBSSLSO" ;;	# *BSD
+-	*)	LD_PRELOAD="$LIBCRYPTOSO $LIBSSLSO" ;;	# SunOS, Linux, ELF HP-UX
++	*BSD|QNX)	LD_PRELOAD="$LIBCRYPTOSO:$LIBSSLSO" ;;	# *BSD, QNX
++	*)		LD_PRELOAD="$LIBCRYPTOSO $LIBSSLSO" ;;	# SunOS, Linux, ELF HP-UX
+ 	esac
+ 	_RLD_LIST="$LIBCRYPTOSO:$LIBSSLSO:DEFAULT"	# Tru64, o32 IRIX
+ 	DYLD_INSERT_LIBRARIES="$LIBCRYPTOSO:$LIBSSLSO"	# MacOS X
