@@ -145,6 +145,8 @@ if new_gas_or_nasm
     #],
   elif host_machine.cpu_family() == 'x86_64' and host_machine.system() in ['linux', 'android']
     arch_subdir = 'linux-x86_64'
+  elif host_machine.cpu_family() == 'mips' and host_machine.system() == 'linux'
+    arch_subdir = 'linux-mips32'
   elif host_machine.cpu_family() == 'mips64' and host_machine.system() == 'linux'
     arch_subdir = 'linux64-mips64'
   else
@@ -293,6 +295,8 @@ if asm == 'no-asm'
     arch_subdir = 'VC-WIN64-ARM'
   elif host_machine.cpu_family() == 'x86_64' and host_machine.system() == 'linux'
     arch_subdir = 'linux-x86_64'
+  elif host_machine.cpu_family() == 'mips' and host_machine.system() == 'linux'
+    arch_subdir = 'linux-mips32'
   elif host_machine.cpu_family() == 'mips64' and host_machine.system() == 'linux'
     arch_subdir = 'linux64-mips64'
   else

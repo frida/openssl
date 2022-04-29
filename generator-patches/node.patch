@@ -1,8 +1,8 @@
 diff --git a/deps/openssl/config/Makefile b/deps/openssl/config/Makefile
-index bfde5580..65c82c13 100644
+index bfde5580..60836470 100644
 --- a/deps/openssl/config/Makefile
 +++ b/deps/openssl/config/Makefile
-@@ -9,11 +9,11 @@ endif
+@@ -9,11 +9,12 @@ endif
  PERL    = perl
  
  # Supported architecture list
@@ -14,12 +14,13 @@ index bfde5580..65c82c13 100644
 +ASM_ARCHS = aix-gcc aix64-gcc BSD-x86 BSD-x86_64 BSD-generic64 \
 +darwin64-x86_64-cc darwin-i386-cc darwin-armv7-cc darwin64-arm64-cc \
 +linux-aarch64 linux-armv4 linux-elf linux-x32 linux-x86_64 linux-ppc \
-+linux-ppc64 linux-ppc64le linux32-s390x linux64-s390x linux64-mips64 \
-+qnx-x86 qnx-arm solaris-x86-gcc solaris64-x86_64-gcc VC-WIN64A VC-WIN32
++linux-ppc64 linux-ppc64le linux32-s390x linux64-s390x linux-mips32 \
++linux64-mips64 qnx-x86 qnx-arm solaris-x86-gcc solaris64-x86_64-gcc \
++VC-WIN64A VC-WIN32
  
  NO_ASM_ARCHS = VC-WIN64-ARM
  
-@@ -24,8 +24,9 @@ CONFIGURE = ./Configure
+@@ -24,8 +25,9 @@ CONFIGURE = ./Configure
  # no-comp: against CRIME attack
  # no-shared: openssl-cli needs static link
  # no-afalgeng: old Linux kernel < 4.0 does not support it
@@ -31,12 +32,13 @@ index bfde5580..65c82c13 100644
  # disable platform check in Configure
  NO_WARN_ENV = CONFIGURE_CHECKER_WARN=1
 diff --git a/deps/openssl/config/generate_gypi.pl b/deps/openssl/config/generate_gypi.pl
+index f24d9ea6..56d92ffe 100755
 --- a/deps/openssl/config/generate_gypi.pl
 +++ b/deps/openssl/config/generate_gypi.pl
-@@ -171,7 +171,34 @@
+@@ -171,7 +171,34 @@ open(CLGYPI, "> ./archs/$arch/$asm/openssl-cl.gypi");
  print CLGYPI "$clgypi";
  close(CLGYPI);
-
+ 
 +# Create meson.build
 +my $mtemplate =
 +    Text::Template->new(TYPE => 'FILE',
