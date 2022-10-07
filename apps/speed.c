@@ -3477,7 +3477,7 @@ static int do_multi(int multi, int size_num)
         }
         fflush(stdout);
         (void)BIO_flush(bio_err);
-        if (fork()) {
+        if (0 /*fork()*/) {
             close(fd[1]);
             fds[n] = fd[0];
         } else {

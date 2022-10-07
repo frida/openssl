@@ -64,7 +64,7 @@
 # define LOG_ERR       2
 #endif
 
-#if defined(OPENSSL_SYS_VXWORKS)
+#if defined(OPENSSL_SYS_VXWORKS) || 1
 /* not supported */
 int setpgid(pid_t pid, pid_t pgid)
 {
@@ -972,7 +972,7 @@ static void spawn_loop(void)
         if (termsig)
             break;
 
-        switch(fpid = fork()) {
+        switch(fpid = -1 /*fork()*/) {
         case -1:            /* error */
             /* System critically low on memory, pause and try again later */
             sleep(30);
