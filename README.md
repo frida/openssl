@@ -10,6 +10,11 @@ This wrap abuses that feature by replacing bundled OpenSSL with upstream version
 During installation unmodified Node.js tarball will be downloaded, its bundled OpenSSL will be replaced with upstream version and patched with `meson.build` files, enabling ability to build OpenSSL with Meson 🎉.
 
 ## How to update to newer release
+First, you may need to install some packages:
+```
+sudo dnf install -y nasm perl-FindBin perl-IPC-Cmd perl-Text-Template
+```
+
 Unless Node.js changes the mechanism we abuse above (unlikely, but possible, please check the diff between corresponding versions), `generator.sh` file can be used.
 
 Just update OpenSSL version in wrap file, update Node.js version in `generator.sh` file to such that contains matching OpenSSL version bundled with it and run `generator.sh` from the root of the repository:
