@@ -1,14 +1,14 @@
 #include "arm_arch.h"
 
-.text
 #if defined(__thumb2__)
 .syntax	unified
 .thumb
 #else
 .code	32
 #endif
+
 .globl	ecp_nistz256_precomputed
-.type	ecp_nistz256_precomputed,%object
+
 .align	12
 ecp_nistz256_precomputed:
 .byte	0x3c,0x4d,0x27,0xcc,0xf5,0x4a,0x4f,0x8f,0xe8,0xc8,0x04,0x68,0x09,0x4a,0x5b,0x80,0x9d,0x7a,0xe8,0x31,0x08,0x76,0x68,0x19,0x9f,0x08,0xb4,0x1f,0x32,0x43,0x89,0xd8,0x34,0xd3,0xf5,0xb7,0xb5,0xee,0x42,0x3e,0x91,0x01,0x06,0x7c,0xbf,0xd9,0x97,0x12,0xd3,0x1a,0xc9,0x04,0x8d,0x53,0x83,0x14,0x28,0xf0,0x8e,0x19,0xcc,0x91,0xe5,0x80
@@ -2379,47 +2379,50 @@ ecp_nistz256_precomputed:
 .byte	0x44,0xbb,0x9b,0x51,0x5a,0x06,0x1d,0x2e,0xd7,0xef,0xd1,0x81,0xb6,0xec,0xc6,0x89,0xfb,0x13,0xc5,0x21,0xef,0x9a,0x1a,0x48,0xf2,0xf8,0xb3,0xa3,0xec,0x7f,0x85,0xc1,0xc6,0x8c,0x5f,0xa9,0x30,0x38,0x25,0x1e,0x8d,0xcf,0x18,0x24,0xef,0x5a,0x9a,0x14,0x31,0xc0,0x2c,0x88,0xa5,0x3f,0x50,0x8b,0xb1,0xda,0x5d,0x26,0xd9,0xd3,0x81,0xb1
 .byte	0xec,0xf0,0x42,0x88,0xd0,0x81,0x51,0xf9,0x1b,0xbc,0x43,0xa4,0x37,0xf1,0xd7,0x90,0x21,0x7e,0xa0,0x3e,0x63,0xfb,0x21,0xfa,0x12,0xfb,0xde,0xc7,0xbf,0xb3,0x58,0xe7,0x76,0x42,0x20,0x01,0x3d,0x66,0x80,0xf1,0xb8,0xaf,0xfa,0x7d,0x96,0x89,0x36,0x48,0x95,0xd9,0x6e,0x6d,0xe6,0x4f,0xff,0x2a,0x47,0x61,0xf2,0x04,0xb7,0x83,0x14,0xce
 .byte	0x0a,0x3c,0x73,0x17,0x50,0x88,0x03,0x25,0x4a,0xe3,0x13,0x55,0x8b,0x7e,0x50,0x38,0xfc,0x14,0x0b,0x04,0x8e,0xa8,0x5b,0xd6,0x72,0x20,0x60,0xe9,0xaa,0x22,0x82,0x11,0xc6,0xc4,0xd7,0xb9,0xc8,0x0c,0x7e,0x05,0xfb,0x90,0xe4,0x9c,0x28,0x89,0x29,0x99,0x63,0x4d,0xec,0x7b,0x50,0xbd,0xd8,0xa3,0x5b,0x50,0x77,0x19,0x81,0x92,0xce,0x82
-.size	ecp_nistz256_precomputed,.-ecp_nistz256_precomputed
+
+
+.text
 .align	5
-.LRR:	@ 2^512 mod P precomputed for NIST P256 polynomial
+LRR:@ 2^512 mod P precomputed for NIST P256 polynomial
 .long	0x00000003, 0x00000000, 0xffffffff, 0xfffffffb
 .long	0xfffffffe, 0xffffffff, 0xfffffffd, 0x00000004
-.Lone:
+Lone:
 .long	1,0,0,0,0,0,0,0
-.asciz	"ECP_NISTZ256 for ARMv4, CRYPTOGAMS by <appro@openssl.org>"
+.byte	69,67,80,95,78,73,83,84,90,50,53,54,32,102,111,114,32,65,82,77,118,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
+.align	2
 .align	6
 @ void	ecp_nistz256_to_mont(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_to_mont
-.type	ecp_nistz256_to_mont,%function
+
 ecp_nistz256_to_mont:
-	adr	r2,.LRR
-	b	.Lecp_nistz256_mul_mont
-.size	ecp_nistz256_to_mont,.-ecp_nistz256_to_mont
+	adr	r2,LRR
+	b	Lecp_nistz256_mul_mont
+
 
 @ void	ecp_nistz256_from_mont(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_from_mont
-.type	ecp_nistz256_from_mont,%function
+
 ecp_nistz256_from_mont:
-	adr	r2,.Lone
-	b	.Lecp_nistz256_mul_mont
-.size	ecp_nistz256_from_mont,.-ecp_nistz256_from_mont
+	adr	r2,Lone
+	b	Lecp_nistz256_mul_mont
+
 
 @ void	ecp_nistz256_mul_by_2(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_mul_by_2
-.type	ecp_nistz256_mul_by_2,%function
+
 .align	4
 ecp_nistz256_mul_by_2:
-	stmdb	sp!,{r4-r12,lr}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_mul_by_2
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_mul_by_2,.-ecp_nistz256_mul_by_2
 
-.type	__ecp_nistz256_mul_by_2,%function
+
+
 .align	4
 __ecp_nistz256_mul_by_2:
 	ldr	r4,[r1,#0]
@@ -2441,26 +2444,26 @@ __ecp_nistz256_mul_by_2:
 	adcs	r11,r11,r11
 	adc	r3,r3,#0
 
-	b	.Lreduce_by_sub
-.size	__ecp_nistz256_mul_by_2,.-__ecp_nistz256_mul_by_2
+	b	Lreduce_by_sub
+
 
 @ void	ecp_nistz256_add(BN_ULONG r0[8],const BN_ULONG r1[8],
 @					const BN_ULONG r2[8]);
 .globl	ecp_nistz256_add
-.type	ecp_nistz256_add,%function
+
 .align	4
 ecp_nistz256_add:
-	stmdb	sp!,{r4-r12,lr}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_add
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_add,.-ecp_nistz256_add
 
-.type	__ecp_nistz256_add,%function
+
+
 .align	4
 __ecp_nistz256_add:
 	str	lr,[sp,#-4]!		@ push lr
@@ -2470,21 +2473,21 @@ __ecp_nistz256_add:
 	ldr	r6,[r1,#8]
 	ldr	r7,[r1,#12]
 	ldr	r8,[r1,#16]
-	 ldr	r3,[r2,#0]
+	ldr	r3,[r2,#0]
 	ldr	r9,[r1,#20]
-	 ldr	r12,[r2,#4]
+	ldr	r12,[r2,#4]
 	ldr	r10,[r1,#24]
-	 ldr	r14,[r2,#8]
+	ldr	r14,[r2,#8]
 	ldr	r11,[r1,#28]
-	 ldr	r1,[r2,#12]
+	ldr	r1,[r2,#12]
 	adds	r4,r4,r3
-	 ldr	r3,[r2,#16]
+	ldr	r3,[r2,#16]
 	adcs	r5,r5,r12
-	 ldr	r12,[r2,#20]
+	ldr	r12,[r2,#20]
 	adcs	r6,r6,r14
-	 ldr	r14,[r2,#24]
+	ldr	r14,[r2,#24]
 	adcs	r7,r7,r1
-	 ldr	r1,[r2,#28]
+	ldr	r1,[r2,#28]
 	adcs	r8,r8,r3
 	adcs	r9,r9,r12
 	adcs	r10,r10,r14
@@ -2493,7 +2496,7 @@ __ecp_nistz256_add:
 	adc	r3,r3,#0
 	ldr	lr,[sp],#4		@ pop lr
 
-.Lreduce_by_sub:
+Lreduce_by_sub:
 
 	@ if a+b >= modulus, subtract modulus.
 	@
@@ -2533,24 +2536,24 @@ __ecp_nistz256_add:
 	str	r11,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_add,.-__ecp_nistz256_add
+
 
 @ void	ecp_nistz256_mul_by_3(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_mul_by_3
-.type	ecp_nistz256_mul_by_3,%function
+
 .align	4
 ecp_nistz256_mul_by_3:
-	stmdb	sp!,{r4-r12,lr}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_mul_by_3
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_mul_by_3,.-ecp_nistz256_mul_by_3
 
-.type	__ecp_nistz256_mul_by_3,%function
+
+
 .align	4
 __ecp_nistz256_mul_by_3:
 	str	lr,[sp,#-4]!		@ push lr
@@ -2578,7 +2581,7 @@ __ecp_nistz256_mul_by_3:
 	adcs	r11,r11,r11
 	adc	r3,r3,#0
 
-	subs	r4,r4,#-1		@ .Lreduce_by_sub but without stores
+	subs	r4,r4,#-1		@ Lreduce_by_sub but without stores
 	sbcs	r5,r5,#-1
 	sbcs	r6,r6,#-1
 	sbcs	r7,r7,#0
@@ -2593,11 +2596,11 @@ __ecp_nistz256_mul_by_3:
 	adcs	r6,r6,r3
 	adcs	r7,r7,#0
 	adcs	r8,r8,#0
-	 ldr	r2,[r1,#0]
+	ldr	r2,[r1,#0]
 	adcs	r9,r9,#0
-	 ldr	r12,[r1,#4]
+	ldr	r12,[r1,#4]
 	adcs	r10,r10,r3,lsr#31
-	 ldr	r14,[r1,#8]
+	ldr	r14,[r1,#8]
 	adc	r11,r11,r3
 
 	ldr	r3,[r1,#12]
@@ -2617,25 +2620,25 @@ __ecp_nistz256_mul_by_3:
 	adc	r3,r3,#0
 	ldr	lr,[sp],#4		@ pop lr
 
-	b	.Lreduce_by_sub
-.size	ecp_nistz256_mul_by_3,.-ecp_nistz256_mul_by_3
+	b	Lreduce_by_sub
+
 
 @ void	ecp_nistz256_div_by_2(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_div_by_2
-.type	ecp_nistz256_div_by_2,%function
+
 .align	4
 ecp_nistz256_div_by_2:
-	stmdb	sp!,{r4-r12,lr}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_div_by_2
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_div_by_2,.-ecp_nistz256_div_by_2
 
-.type	__ecp_nistz256_div_by_2,%function
+
+
 .align	4
 __ecp_nistz256_div_by_2:
 	@ ret = (a is odd ? a+mod : a) >> 1
@@ -2659,14 +2662,14 @@ __ecp_nistz256_div_by_2:
 	adcs	r7,r7,#0
 	ldr	r11,[r1,#28]
 	adcs	r8,r8,#0
-	 mov	r4,r4,lsr#1		@ a[0:7]>>=1, we can start early
+	mov	r4,r4,lsr#1		@ a[0:7]>>=1, we can start early
 					@ because it doesn't affect flags
 	adcs	r9,r9,#0
-	 orr	r4,r4,r5,lsl#31
+	orr	r4,r4,r5,lsl#31
 	adcs	r10,r10,r3,lsr#31
 	mov	r2,#0
 	adcs	r11,r11,r3,asr#31
-	 mov	r5,r5,lsr#1
+	mov	r5,r5,lsr#1
 	adc	r2,r2,#0	@ top-most carry bit from addition
 
 	orr	r5,r5,r6,lsl#31
@@ -2692,25 +2695,25 @@ __ecp_nistz256_div_by_2:
 	str	r11,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_div_by_2,.-__ecp_nistz256_div_by_2
+
 
 @ void	ecp_nistz256_sub(BN_ULONG r0[8],const BN_ULONG r1[8],
 @				        const BN_ULONG r2[8]);
 .globl	ecp_nistz256_sub
-.type	ecp_nistz256_sub,%function
+
 .align	4
 ecp_nistz256_sub:
-	stmdb	sp!,{r4-r12,lr}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_sub
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_sub,.-ecp_nistz256_sub
 
-.type	__ecp_nistz256_sub,%function
+
+
 .align	4
 __ecp_nistz256_sub:
 	str	lr,[sp,#-4]!		@ push lr
@@ -2720,21 +2723,21 @@ __ecp_nistz256_sub:
 	ldr	r6,[r1,#8]
 	ldr	r7,[r1,#12]
 	ldr	r8,[r1,#16]
-	 ldr	r3,[r2,#0]
+	ldr	r3,[r2,#0]
 	ldr	r9,[r1,#20]
-	 ldr	r12,[r2,#4]
+	ldr	r12,[r2,#4]
 	ldr	r10,[r1,#24]
-	 ldr	r14,[r2,#8]
+	ldr	r14,[r2,#8]
 	ldr	r11,[r1,#28]
-	 ldr	r1,[r2,#12]
+	ldr	r1,[r2,#12]
 	subs	r4,r4,r3
-	 ldr	r3,[r2,#16]
+	ldr	r3,[r2,#16]
 	sbcs	r5,r5,r12
-	 ldr	r12,[r2,#20]
+	ldr	r12,[r2,#20]
 	sbcs	r6,r6,r14
-	 ldr	r14,[r2,#24]
+	ldr	r14,[r2,#24]
 	sbcs	r7,r7,r1
-	 ldr	r1,[r2,#28]
+	ldr	r1,[r2,#28]
 	sbcs	r8,r8,r3
 	sbcs	r9,r9,r12
 	sbcs	r10,r10,r14
@@ -2742,7 +2745,7 @@ __ecp_nistz256_sub:
 	sbc	r3,r3,r3		@ broadcast borrow bit
 	ldr	lr,[sp],#4		@ pop lr
 
-.Lreduce_by_add:
+Lreduce_by_add:
 
 	@ if a-b borrows, add modulus.
 	@
@@ -2769,24 +2772,24 @@ __ecp_nistz256_sub:
 	str	r11,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_sub,.-__ecp_nistz256_sub
+
 
 @ void	ecp_nistz256_neg(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_neg
-.type	ecp_nistz256_neg,%function
+
 .align	4
 ecp_nistz256_neg:
-	stmdb	sp!,{r4-r12,lr}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_neg
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_neg,.-ecp_nistz256_neg
 
-.type	__ecp_nistz256_neg,%function
+
+
 .align	4
 __ecp_nistz256_neg:
 	ldr	r4,[r1,#0]
@@ -2808,44 +2811,44 @@ __ecp_nistz256_neg:
 	sbcs	r11,r3,r11
 	sbc	r3,r3,r3
 
-	b	.Lreduce_by_add
-.size	__ecp_nistz256_neg,.-__ecp_nistz256_neg
+	b	Lreduce_by_add
+
 @ void	ecp_nistz256_sqr_mont(BN_ULONG r0[8],const BN_ULONG r1[8]);
 .globl	ecp_nistz256_sqr_mont
-.type	ecp_nistz256_sqr_mont,%function
+
 .align	4
 ecp_nistz256_sqr_mont:
 	mov	r2,r1
-	b	.Lecp_nistz256_mul_mont
-.size	ecp_nistz256_sqr_mont,.-ecp_nistz256_sqr_mont
+	b	Lecp_nistz256_mul_mont
+
 
 @ void	ecp_nistz256_mul_mont(BN_ULONG r0[8],const BN_ULONG r1[8],
 @					     const BN_ULONG r2[8]);
 .globl	ecp_nistz256_mul_mont
-.type	ecp_nistz256_mul_mont,%function
+
 .align	4
 ecp_nistz256_mul_mont:
-.Lecp_nistz256_mul_mont:
-	stmdb	sp!,{r4-r12,lr}
+Lecp_nistz256_mul_mont:
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bl	__ecp_nistz256_mul_mont
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_mul_mont,.-ecp_nistz256_mul_mont
 
-.type	__ecp_nistz256_mul_mont,%function
+
+
 .align	4
 __ecp_nistz256_mul_mont:
-	stmdb	sp!,{r0-r2,lr}			@ make a copy of arguments too
+	stmdb	sp!,{r0,r1,r2,lr}			@ make a copy of arguments too
 
 	ldr	r2,[r2,#0]			@ b[0]
-	ldmia	r1,{r4-r11}
+	ldmia	r1,{r4,r5,r6,r7,r8,r9,r10,r11}
 
 	umull	r3,r14,r4,r2		@ r[0]=a[0]*b[0]
-	stmdb	sp!,{r4-r11}		@ copy a[0-7] to stack, so
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11}		@ copy a[0-7] to stack, so
 						@ that it can be addressed
 						@ without spending register
 						@ on address
@@ -2867,21 +2870,21 @@ __ecp_nistz256_mul_mont:
 	adc	r11,r12,#0
 	@ multiplication-less reduction 1
 	adds	r6,r6,r3		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r7,r7,#0		@ r[4]+=0
 	adcs	r8,r8,#0		@ r[5]+=0
 	adcs	r9,r9,r3		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r10,r10,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*1]			@ load b[i]
+	ldr	r2,[r2,#4*1]			@ load b[i]
 	adcs	r11,r11,r3		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r10,r10,r3		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r11,r11,#0		@ r[8]-=0
-	 umlal	r4,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r4,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r3,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -2889,7 +2892,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r5,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r3,[sp,#36]		@ temporarily offload overflow
+	str	r3,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r3,[sp,#12]			@ a[3], r3 is alias r3
 	umlal	r6,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -2911,7 +2914,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r10,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r9,r9,r3
-	 ldr	r3,[sp,#36]		@ restore overflow bit
+	ldr	r3,[sp,#36]		@ restore overflow bit
 	umlal	r11,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r10,r10,r0
@@ -2920,21 +2923,21 @@ __ecp_nistz256_mul_mont:
 	adc	r14,r14,#0			@ new overflow bit
 	@ multiplication-less reduction 2
 	adds	r7,r7,r4		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r8,r8,#0		@ r[4]+=0
 	adcs	r9,r9,#0		@ r[5]+=0
 	adcs	r10,r10,r4		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r11,r11,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*2]			@ load b[i]
+	ldr	r2,[r2,#4*2]			@ load b[i]
 	adcs	r3,r3,r4		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r11,r11,r4		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r3,r3,#0		@ r[8]-=0
-	 umlal	r5,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r5,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r4,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -2942,7 +2945,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r6,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r4,[sp,#36]		@ temporarily offload overflow
+	str	r4,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r4,[sp,#12]			@ a[3], r4 is alias r4
 	umlal	r7,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -2964,7 +2967,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r11,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r10,r10,r4
-	 ldr	r4,[sp,#36]		@ restore overflow bit
+	ldr	r4,[sp,#36]		@ restore overflow bit
 	umlal	r3,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r11,r11,r0
@@ -2973,21 +2976,21 @@ __ecp_nistz256_mul_mont:
 	adc	r14,r14,#0			@ new overflow bit
 	@ multiplication-less reduction 3
 	adds	r8,r8,r5		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r9,r9,#0		@ r[4]+=0
 	adcs	r10,r10,#0		@ r[5]+=0
 	adcs	r11,r11,r5		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r3,r3,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*3]			@ load b[i]
+	ldr	r2,[r2,#4*3]			@ load b[i]
 	adcs	r4,r4,r5		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r3,r3,r5		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r4,r4,#0		@ r[8]-=0
-	 umlal	r6,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r6,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r5,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -2995,7 +2998,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r7,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r5,[sp,#36]		@ temporarily offload overflow
+	str	r5,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r5,[sp,#12]			@ a[3], r5 is alias r5
 	umlal	r8,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -3017,7 +3020,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r3,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r11,r11,r5
-	 ldr	r5,[sp,#36]		@ restore overflow bit
+	ldr	r5,[sp,#36]		@ restore overflow bit
 	umlal	r4,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r3,r3,r0
@@ -3026,21 +3029,21 @@ __ecp_nistz256_mul_mont:
 	adc	r14,r14,#0			@ new overflow bit
 	@ multiplication-less reduction 4
 	adds	r9,r9,r6		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r10,r10,#0		@ r[4]+=0
 	adcs	r11,r11,#0		@ r[5]+=0
 	adcs	r3,r3,r6		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r4,r4,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*4]			@ load b[i]
+	ldr	r2,[r2,#4*4]			@ load b[i]
 	adcs	r5,r5,r6		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r4,r4,r6		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r5,r5,#0		@ r[8]-=0
-	 umlal	r7,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r7,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r6,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -3048,7 +3051,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r8,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r6,[sp,#36]		@ temporarily offload overflow
+	str	r6,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r6,[sp,#12]			@ a[3], r6 is alias r6
 	umlal	r9,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -3070,7 +3073,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r4,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r3,r3,r6
-	 ldr	r6,[sp,#36]		@ restore overflow bit
+	ldr	r6,[sp,#36]		@ restore overflow bit
 	umlal	r5,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r4,r4,r0
@@ -3079,21 +3082,21 @@ __ecp_nistz256_mul_mont:
 	adc	r14,r14,#0			@ new overflow bit
 	@ multiplication-less reduction 5
 	adds	r10,r10,r7		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r11,r11,#0		@ r[4]+=0
 	adcs	r3,r3,#0		@ r[5]+=0
 	adcs	r4,r4,r7		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r5,r5,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*5]			@ load b[i]
+	ldr	r2,[r2,#4*5]			@ load b[i]
 	adcs	r6,r6,r7		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r5,r5,r7		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r6,r6,#0		@ r[8]-=0
-	 umlal	r8,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r8,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r7,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -3101,7 +3104,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r9,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r7,[sp,#36]		@ temporarily offload overflow
+	str	r7,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r7,[sp,#12]			@ a[3], r7 is alias r7
 	umlal	r10,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -3123,7 +3126,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r5,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r4,r4,r7
-	 ldr	r7,[sp,#36]		@ restore overflow bit
+	ldr	r7,[sp,#36]		@ restore overflow bit
 	umlal	r6,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r5,r5,r0
@@ -3132,21 +3135,21 @@ __ecp_nistz256_mul_mont:
 	adc	r14,r14,#0			@ new overflow bit
 	@ multiplication-less reduction 6
 	adds	r11,r11,r8		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r3,r3,#0		@ r[4]+=0
 	adcs	r4,r4,#0		@ r[5]+=0
 	adcs	r5,r5,r8		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r6,r6,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*6]			@ load b[i]
+	ldr	r2,[r2,#4*6]			@ load b[i]
 	adcs	r7,r7,r8		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r6,r6,r8		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r7,r7,#0		@ r[8]-=0
-	 umlal	r9,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r9,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r8,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -3154,7 +3157,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r10,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r8,[sp,#36]		@ temporarily offload overflow
+	str	r8,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r8,[sp,#12]			@ a[3], r8 is alias r8
 	umlal	r11,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -3176,7 +3179,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r6,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r5,r5,r8
-	 ldr	r8,[sp,#36]		@ restore overflow bit
+	ldr	r8,[sp,#36]		@ restore overflow bit
 	umlal	r7,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r6,r6,r0
@@ -3185,21 +3188,21 @@ __ecp_nistz256_mul_mont:
 	adc	r14,r14,#0			@ new overflow bit
 	@ multiplication-less reduction 7
 	adds	r3,r3,r9		@ r[3]+=r[0]
-	 ldr	r2,[sp,#40]			@ restore b_ptr
+	ldr	r2,[sp,#40]			@ restore b_ptr
 	adcs	r4,r4,#0		@ r[4]+=0
 	adcs	r5,r5,#0		@ r[5]+=0
 	adcs	r6,r6,r9		@ r[6]+=r[0]
-	 ldr	r1,[sp,#0]			@ load a[0]
+	ldr	r1,[sp,#0]			@ load a[0]
 	adcs	r7,r7,#0		@ r[7]+=0
-	 ldr	r2,[r2,#4*7]			@ load b[i]
+	ldr	r2,[r2,#4*7]			@ load b[i]
 	adcs	r8,r8,r9		@ r[8]+=r[0]
-	 eor	r0,r0,r0
+	eor	r0,r0,r0
 	adc	r14,r14,#0			@ overflow bit
 	subs	r7,r7,r9		@ r[7]-=r[0]
-	 ldr	r12,[sp,#4]			@ a[1]
+	ldr	r12,[sp,#4]			@ a[1]
 	sbcs	r8,r8,#0		@ r[8]-=0
-	 umlal	r10,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
-	 eor	r1,r1,r1
+	umlal	r10,r0,r1,r2		@ "r[0]"+=a[0]*b[i]
+	eor	r1,r1,r1
 	sbc	r9,r14,#0			@ overflow bit, keep in mind
 						@ that netto result is
 						@ addition of a value which
@@ -3207,7 +3210,7 @@ __ecp_nistz256_mul_mont:
 
 	ldr	r14,[sp,#8]			@ a[2]
 	umlal	r11,r1,r12,r2		@ "r[1]"+=a[1]*b[i]
-	 str	r9,[sp,#36]		@ temporarily offload overflow
+	str	r9,[sp,#36]		@ temporarily offload overflow
 	eor	r12,r12,r12
 	ldr	r9,[sp,#12]			@ a[3], r9 is alias r9
 	umlal	r3,r12,r14,r2		@ "r[2]"+=a[2]*b[i]
@@ -3229,7 +3232,7 @@ __ecp_nistz256_mul_mont:
 	umlal	r7,r1,r12,r2		@ "r[6]"+=a[6]*b[i]
 	eor	r12,r12,r12
 	adcs	r6,r6,r9
-	 ldr	r9,[sp,#36]		@ restore overflow bit
+	ldr	r9,[sp,#36]		@ restore overflow bit
 	umlal	r8,r12,r14,r2		@ "r[7]"+=a[7]*b[i]
 	eor	r14,r14,r14
 	adcs	r7,r7,r0
@@ -3288,18 +3291,18 @@ __ecp_nistz256_mul_mont:
 	str	r9,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_mul_mont,.-__ecp_nistz256_mul_mont
+
 @ void	ecp_nistz256_scatter_w5(void *r0,const P256_POINT *r1,
 @					 int r2);
 .globl	ecp_nistz256_scatter_w5
-.type	ecp_nistz256_scatter_w5,%function
+
 .align	5
 ecp_nistz256_scatter_w5:
-	stmdb	sp!,{r4-r11}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11}
 
 	add	r0,r0,r2,lsl#2
 
-	ldmia	r1!,{r4-r11}		@ X
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}		@ X
 	str	r4,[r0,#64*0-4]
 	str	r5,[r0,#64*1-4]
 	str	r6,[r0,#64*2-4]
@@ -3310,7 +3313,7 @@ ecp_nistz256_scatter_w5:
 	str	r11,[r0,#64*7-4]
 	add	r0,r0,#64*8
 
-	ldmia	r1!,{r4-r11}		@ Y
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}		@ Y
 	str	r4,[r0,#64*0-4]
 	str	r5,[r0,#64*1-4]
 	str	r6,[r0,#64*2-4]
@@ -3321,7 +3324,7 @@ ecp_nistz256_scatter_w5:
 	str	r11,[r0,#64*7-4]
 	add	r0,r0,#64*8
 
-	ldmia	r1,{r4-r11}		@ Z
+	ldmia	r1,{r4,r5,r6,r7,r8,r9,r10,r11}		@ Z
 	str	r4,[r0,#64*0-4]
 	str	r5,[r0,#64*1-4]
 	str	r6,[r0,#64*2-4]
@@ -3331,21 +3334,21 @@ ecp_nistz256_scatter_w5:
 	str	r10,[r0,#64*6-4]
 	str	r11,[r0,#64*7-4]
 
-	ldmia	sp!,{r4-r11}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11}
 #if __ARM_ARCH__>=5 || defined(__thumb__)
 	bx	lr
 #else
 	mov	pc,lr
 #endif
-.size	ecp_nistz256_scatter_w5,.-ecp_nistz256_scatter_w5
+
 
 @ void	ecp_nistz256_gather_w5(P256_POINT *r0,const void *r1,
 @					      int r2);
 .globl	ecp_nistz256_gather_w5
-.type	ecp_nistz256_gather_w5,%function
+
 .align	5
 ecp_nistz256_gather_w5:
-	stmdb	sp!,{r4-r11}
+	stmdb	sp!,{r4,r5,r6,r7,r8,r9,r10,r11}
 
 	cmp	r2,#0
 	mov	r3,#0
@@ -3373,7 +3376,7 @@ ecp_nistz256_gather_w5:
 	and	r9,r9,r3
 	and	r10,r10,r3
 	and	r11,r11,r3
-	stmia	r0!,{r4-r11}	@ X
+	stmia	r0!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ X
 
 	ldr	r4,[r1,#64*0]
 	ldr	r5,[r1,#64*1]
@@ -3392,7 +3395,7 @@ ecp_nistz256_gather_w5:
 	and	r9,r9,r3
 	and	r10,r10,r3
 	and	r11,r11,r3
-	stmia	r0!,{r4-r11}	@ Y
+	stmia	r0!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ Y
 
 	ldr	r4,[r1,#64*0]
 	ldr	r5,[r1,#64*1]
@@ -3410,25 +3413,25 @@ ecp_nistz256_gather_w5:
 	and	r9,r9,r3
 	and	r10,r10,r3
 	and	r11,r11,r3
-	stmia	r0,{r4-r11}		@ Z
+	stmia	r0,{r4,r5,r6,r7,r8,r9,r10,r11}		@ Z
 
-	ldmia	sp!,{r4-r11}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11}
 #if __ARM_ARCH__>=5 || defined(__thumb__)
 	bx	lr
 #else
 	mov	pc,lr
 #endif
-.size	ecp_nistz256_gather_w5,.-ecp_nistz256_gather_w5
+
 
 @ void	ecp_nistz256_scatter_w7(void *r0,const P256_POINT_AFFINE *r1,
 @					 int r2);
 .globl	ecp_nistz256_scatter_w7
-.type	ecp_nistz256_scatter_w7,%function
+
 .align	5
 ecp_nistz256_scatter_w7:
 	add	r0,r0,r2
 	mov	r2,#64/4
-.Loop_scatter_w7:
+Loop_scatter_w7:
 	ldr	r3,[r1],#4
 	subs	r2,r2,#1
 	strb	r3,[r0,#64*0]
@@ -3439,22 +3442,22 @@ ecp_nistz256_scatter_w7:
 	mov	r3,r3,lsr#8
 	strb	r3,[r0,#64*3]
 	add	r0,r0,#64*4
-	bne	.Loop_scatter_w7
+	bne	Loop_scatter_w7
 
 #if __ARM_ARCH__>=5 || defined(__thumb__)
 	bx	lr
 #else
 	mov	pc,lr
 #endif
-.size	ecp_nistz256_scatter_w7,.-ecp_nistz256_scatter_w7
+
 
 @ void	ecp_nistz256_gather_w7(P256_POINT_AFFINE *r0,const void *r1,
 @						     int r2);
 .globl	ecp_nistz256_gather_w7
-.type	ecp_nistz256_gather_w7,%function
+
 .align	5
 ecp_nistz256_gather_w7:
-	stmdb	sp!,{r4-r7}
+	stmdb	sp!,{r4,r5,r6,r7}
 
 	cmp	r2,#0
 	mov	r3,#0
@@ -3466,7 +3469,7 @@ ecp_nistz256_gather_w7:
 	add	r1,r1,r2
 	mov	r2,#64/4
 	nop
-.Loop_gather_w7:
+Loop_gather_w7:
 	ldrb	r4,[r1,#64*0]
 	subs	r2,r2,#1
 	ldrb	r5,[r1,#64*1]
@@ -3478,32 +3481,32 @@ ecp_nistz256_gather_w7:
 	orr	r4,r4,r7,lsl#24
 	and	r4,r4,r3
 	str	r4,[r0],#4
-	bne	.Loop_gather_w7
+	bne	Loop_gather_w7
 
-	ldmia	sp!,{r4-r7}
+	ldmia	sp!,{r4,r5,r6,r7}
 #if __ARM_ARCH__>=5 || defined(__thumb__)
 	bx	lr
 #else
 	mov	pc,lr
 #endif
-.size	ecp_nistz256_gather_w7,.-ecp_nistz256_gather_w7
-.type	__ecp_nistz256_sub_from,%function
+
+
 .align	5
 __ecp_nistz256_sub_from:
 	str	lr,[sp,#-4]!		@ push lr
 
-	 ldr	r10,[r2,#0]
-	 ldr	r12,[r2,#4]
-	 ldr	r14,[r2,#8]
-	 ldr	r1,[r2,#12]
+	ldr	r10,[r2,#0]
+	ldr	r12,[r2,#4]
+	ldr	r14,[r2,#8]
+	ldr	r1,[r2,#12]
 	subs	r11,r11,r10
-	 ldr	r10,[r2,#16]
+	ldr	r10,[r2,#16]
 	sbcs	r3,r3,r12
-	 ldr	r12,[r2,#20]
+	ldr	r12,[r2,#20]
 	sbcs	r4,r4,r14
-	 ldr	r14,[r2,#24]
+	ldr	r14,[r2,#24]
 	sbcs	r5,r5,r1
-	 ldr	r1,[r2,#28]
+	ldr	r1,[r2,#28]
 	sbcs	r6,r6,r10
 	sbcs	r7,r7,r12
 	sbcs	r8,r8,r14
@@ -3529,25 +3532,25 @@ __ecp_nistz256_sub_from:
 	str	r9,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_sub_from,.-__ecp_nistz256_sub_from
 
-.type	__ecp_nistz256_sub_morf,%function
+
+
 .align	5
 __ecp_nistz256_sub_morf:
 	str	lr,[sp,#-4]!		@ push lr
 
-	 ldr	r10,[r2,#0]
-	 ldr	r12,[r2,#4]
-	 ldr	r14,[r2,#8]
-	 ldr	r1,[r2,#12]
+	ldr	r10,[r2,#0]
+	ldr	r12,[r2,#4]
+	ldr	r14,[r2,#8]
+	ldr	r1,[r2,#12]
 	subs	r11,r10,r11
-	 ldr	r10,[r2,#16]
+	ldr	r10,[r2,#16]
 	sbcs	r3,r12,r3
-	 ldr	r12,[r2,#20]
+	ldr	r12,[r2,#20]
 	sbcs	r4,r14,r4
-	 ldr	r14,[r2,#24]
+	ldr	r14,[r2,#24]
 	sbcs	r5,r1,r5
-	 ldr	r1,[r2,#28]
+	ldr	r1,[r2,#28]
 	sbcs	r6,r10,r6
 	sbcs	r7,r12,r7
 	sbcs	r8,r14,r8
@@ -3573,9 +3576,9 @@ __ecp_nistz256_sub_morf:
 	str	r9,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_sub_morf,.-__ecp_nistz256_sub_morf
 
-.type	__ecp_nistz256_add_self,%function
+
+
 .align	4
 __ecp_nistz256_add_self:
 	adds	r11,r11,r11		@ a[0:7]+=a[0:7]
@@ -3627,19 +3630,19 @@ __ecp_nistz256_add_self:
 	str	r9,[r0,#28]
 
 	mov	pc,lr
-.size	__ecp_nistz256_add_self,.-__ecp_nistz256_add_self
+
 
 .globl	ecp_nistz256_point_double
-.type	ecp_nistz256_point_double,%function
+
 .align	5
 ecp_nistz256_point_double:
-	stmdb	sp!,{r0-r12,lr}		@ push from r0, unusual, but intentional
+	stmdb	sp!,{r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}		@ push from r0, unusual, but intentional
 	sub	sp,sp,#32*5
 
-.Lpoint_double_shortcut:
+Lpoint_double_shortcut:
 	add	r3,sp,#96
-	ldmia	r1!,{r4-r11}	@ copy in_x
-	stmia	r3,{r4-r11}
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in_x
+	stmia	r3,{r4,r5,r6,r7,r8,r9,r10,r11}
 
 	add	r0,sp,#0
 	bl	__ecp_nistz256_mul_by_2	@ p256_mul_by_2(S, in_y);
@@ -3724,25 +3727,25 @@ ecp_nistz256_point_double:
 
 	add	sp,sp,#32*5+16		@ +16 means "skip even over saved r0-r3"
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_point_double,.-ecp_nistz256_point_double
+
 .globl	ecp_nistz256_point_add
-.type	ecp_nistz256_point_add,%function
+
 .align	5
 ecp_nistz256_point_add:
-	stmdb	sp!,{r0-r12,lr}		@ push from r0, unusual, but intentional
+	stmdb	sp!,{r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}		@ push from r0, unusual, but intentional
 	sub	sp,sp,#32*18+16
 
-	ldmia	r2!,{r4-r11}	@ copy in2_x
+	ldmia	r2!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in2_x
 	add	r3,sp,#192
-	stmia	r3!,{r4-r11}
-	ldmia	r2!,{r4-r11}	@ copy in2_y
-	stmia	r3!,{r4-r11}
-	ldmia	r2,{r4-r11}		@ copy in2_z
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r2!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in2_y
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r2,{r4,r5,r6,r7,r8,r9,r10,r11}		@ copy in2_z
 	orr	r12,r4,r5
 	orr	r12,r12,r6
 	orr	r12,r12,r7
@@ -3755,15 +3758,15 @@ ecp_nistz256_point_add:
 	it	ne
 #endif
 	movne	r12,#-1
-	stmia	r3,{r4-r11}
+	stmia	r3,{r4,r5,r6,r7,r8,r9,r10,r11}
 	str	r12,[sp,#32*18+8]	@ ~in2infty
 
-	ldmia	r1!,{r4-r11}	@ copy in1_x
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in1_x
 	add	r3,sp,#96
-	stmia	r3!,{r4-r11}
-	ldmia	r1!,{r4-r11}	@ copy in1_y
-	stmia	r3!,{r4-r11}
-	ldmia	r1,{r4-r11}		@ copy in1_z
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in1_y
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r1,{r4,r5,r6,r7,r8,r9,r10,r11}		@ copy in1_z
 	orr	r12,r4,r5
 	orr	r12,r12,r6
 	orr	r12,r12,r7
@@ -3776,7 +3779,7 @@ ecp_nistz256_point_add:
 	it	ne
 #endif
 	movne	r12,#-1
-	stmia	r3,{r4-r11}
+	stmia	r3,{r4,r5,r6,r7,r8,r9,r10,r11}
 	str	r12,[sp,#32*18+4]	@ ~in1infty
 
 	add	r1,sp,#256
@@ -3819,9 +3822,9 @@ ecp_nistz256_point_add:
 	orr	r11,r11,r4
 	orr	r6,r6,r8
 	orr	r11,r11,r9
-	 add	r1,sp,#96
+	add	r1,sp,#96
 	orr	r11,r11,r6
-	 add	r2,sp,#384
+	add	r2,sp,#384
 	str	r11,[sp,#32*18+12]
 
 	add	r0,sp,#448
@@ -3854,15 +3857,15 @@ ecp_nistz256_point_add:
 	orrs	r11,r11,r14		@ set flags
 
 	@ if(~is_equal(U1,U2) | in1infty | in2infty | ~is_equal(S1,S2))
-	bne	.Ladd_proceed
+	bne	Ladd_proceed
 
-.Ladd_double:
+Ladd_double:
 	ldr	r1,[sp,#32*18+20]
 	add	sp,sp,#32*(18-5)+16	@ difference in frame sizes
-	b	.Lpoint_double_shortcut
+	b	Lpoint_double_shortcut
 
 .align	4
-.Ladd_proceed:
+Ladd_proceed:
 	add	r1,sp,#352
 	add	r2,sp,#352
 	add	r0,sp,#384
@@ -3930,9 +3933,9 @@ ecp_nistz256_point_add:
 	and	r11,r11,r12		@ in1infty & ~in2infty
 	mvn	r12,r12			@ in2infty
 	ldr	r0,[sp,#32*18+16]
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -3943,10 +3946,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -3957,10 +3960,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -3971,10 +3974,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -3985,10 +3988,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -3999,10 +4002,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4013,10 +4016,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4027,10 +4030,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4041,10 +4044,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4055,10 +4058,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4069,10 +4072,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4083,10 +4086,10 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4097,29 +4100,29 @@ ecp_nistz256_point_add:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-.Ladd_done:
+	stmia	r0!,{r4,r5}
+Ladd_done:
 	add	sp,sp,#32*18+16+16	@ +16 means "skip even over saved r0-r3"
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_point_add,.-ecp_nistz256_point_add
+
 .globl	ecp_nistz256_point_add_affine
-.type	ecp_nistz256_point_add_affine,%function
+
 .align	5
 ecp_nistz256_point_add_affine:
-	stmdb	sp!,{r0-r12,lr}		@ push from r0, unusual, but intentional
+	stmdb	sp!,{r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}		@ push from r0, unusual, but intentional
 	sub	sp,sp,#32*15
 
-	ldmia	r1!,{r4-r11}	@ copy in1_x
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in1_x
 	add	r3,sp,#96
-	stmia	r3!,{r4-r11}
-	ldmia	r1!,{r4-r11}	@ copy in1_y
-	stmia	r3!,{r4-r11}
-	ldmia	r1,{r4-r11}		@ copy in1_z
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r1!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in1_y
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r1,{r4,r5,r6,r7,r8,r9,r10,r11}		@ copy in1_z
 	orr	r12,r4,r5
 	orr	r12,r12,r6
 	orr	r12,r12,r7
@@ -4132,10 +4135,10 @@ ecp_nistz256_point_add_affine:
 	it	ne
 #endif
 	movne	r12,#-1
-	stmia	r3,{r4-r11}
+	stmia	r3,{r4,r5,r6,r7,r8,r9,r10,r11}
 	str	r12,[sp,#32*15+4]	@ ~in1infty
 
-	ldmia	r2!,{r4-r11}	@ copy in2_x
+	ldmia	r2!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in2_x
 	add	r3,sp,#192
 	orr	r12,r4,r5
 	orr	r12,r12,r6
@@ -4144,8 +4147,8 @@ ecp_nistz256_point_add_affine:
 	orr	r12,r12,r9
 	orr	r12,r12,r10
 	orr	r12,r12,r11
-	stmia	r3!,{r4-r11}
-	ldmia	r2!,{r4-r11}	@ copy in2_y
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
+	ldmia	r2!,{r4,r5,r6,r7,r8,r9,r10,r11}	@ copy in2_y
 	orr	r12,r12,r4
 	orr	r12,r12,r5
 	orr	r12,r12,r6
@@ -4154,7 +4157,7 @@ ecp_nistz256_point_add_affine:
 	orr	r12,r12,r9
 	orr	r12,r12,r10
 	orr	r12,r12,r11
-	stmia	r3!,{r4-r11}
+	stmia	r3!,{r4,r5,r6,r7,r8,r9,r10,r11}
 	cmp	r12,#0
 #ifdef	__thumb2__
 	it	ne
@@ -4252,9 +4255,9 @@ ecp_nistz256_point_add_affine:
 	and	r11,r11,r12		@ in1infty & ~in2infty
 	mvn	r12,r12			@ in2infty
 	ldr	r0,[sp,#32*15]
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4265,10 +4268,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4279,10 +4282,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4293,10 +4296,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4307,10 +4310,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4321,10 +4324,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4335,10 +4338,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4349,10 +4352,10 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_x
-	ldmia	r2!,{r6-r7}		@ in2_x
-	ldmia	r3!,{r8-r9}		@ in1_x
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_x
+	ldmia	r2!,{r6,r7}		@ in2_x
+	ldmia	r3!,{r8,r9}		@ in1_x
 	and	r4,r4,r10		@ ~in1infty & ~in2infty
 	and	r5,r5,r10
 	and	r6,r6,r11		@ in1infty & ~in2infty
@@ -4363,9 +4366,9 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_z
-	ldmia	r3!,{r8-r9}		@ in1_z
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_z
+	ldmia	r3!,{r8,r9}		@ in1_z
 	and	r4,r4,r10
 	and	r5,r5,r10
 	and	r6,r11,#1
@@ -4376,9 +4379,9 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_z
-	ldmia	r3!,{r8-r9}		@ in1_z
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_z
+	ldmia	r3!,{r8,r9}		@ in1_z
 	and	r4,r4,r10
 	and	r5,r5,r10
 	and	r6,r11,#0
@@ -4389,9 +4392,9 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_z
-	ldmia	r3!,{r8-r9}		@ in1_z
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_z
+	ldmia	r3!,{r8,r9}		@ in1_z
 	and	r4,r4,r10
 	and	r5,r5,r10
 	and	r6,r11,#-1
@@ -4402,9 +4405,9 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
-	ldmia	r1!,{r4-r5}		@ res_z
-	ldmia	r3!,{r8-r9}		@ in1_z
+	stmia	r0!,{r4,r5}
+	ldmia	r1!,{r4,r5}		@ res_z
+	ldmia	r3!,{r8,r9}		@ in1_z
 	and	r4,r4,r10
 	and	r5,r5,r10
 	and	r6,r11,#-2
@@ -4415,12 +4418,12 @@ ecp_nistz256_point_add_affine:
 	orr	r5,r5,r7
 	orr	r4,r4,r8
 	orr	r5,r5,r9
-	stmia	r0!,{r4-r5}
+	stmia	r0!,{r4,r5}
 	add	sp,sp,#32*15+16		@ +16 means "skip even over saved r0-r3"
 #if __ARM_ARCH__>=5 || !defined(__thumb__)
-	ldmia	sp!,{r4-r12,pc}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
 #else
-	ldmia	sp!,{r4-r12,lr}
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
 	bx	lr			@ interoperable with Thumb ISA:-)
 #endif
-.size	ecp_nistz256_point_add_affine,.-ecp_nistz256_point_add_affine
+

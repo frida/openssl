@@ -1,6 +1,6 @@
-@ Copyright 2012-2020 The OpenSSL Project Authors. All Rights Reserved.
+@ Copyright 2012-2021 The OpenSSL Project Authors. All Rights Reserved.
 @
-@ Licensed under the OpenSSL license (the "License").  You may not use
+@ Licensed under the Apache License 2.0 (the "License").  You may not use
 @ this file except in compliance with the License.  You can obtain a copy
 @ in the file LICENSE in the source distribution or at
 @ https://www.openssl.org/source/license.html
@@ -49,6 +49,8 @@
 @ April-August 2013
 @ Add CBC, CTR and XTS subroutines and adapt for kernel use; courtesy of Ard.
 
+@ $output is the last argument if it looks like a file (it has an extension)
+@ $flavour is the first argument if it doesn't look like a file
 #ifndef __KERNEL__
 # include "arm_arch.h"
 
@@ -73,7 +75,6 @@
 
 
 
-.text
 .syntax	unified 	@ ARMv7-capable assembler is expected to handle this
 #if defined(__thumb2__) && !defined(__APPLE__)
 .thumb
@@ -81,6 +82,8 @@
 .code	32
 # undef __thumb2__
 #endif
+
+.text
 
 #ifdef __thumb2__
 .thumb_func	_bsaes_decrypt8
@@ -1076,20 +1079,20 @@ Lkey_loop:
 
 
 
-.globl	_bsaes_cbc_encrypt
+.globl	_ossl_bsaes_cbc_encrypt
 #ifdef __thumb2__
-.thumb_func	_bsaes_cbc_encrypt
+.thumb_func	_ossl_bsaes_cbc_encrypt
 #endif
 .align	5
-_bsaes_cbc_encrypt:
+_ossl_bsaes_cbc_encrypt:
 #ifndef	__KERNEL__
 	cmp	r2, #128
 #ifndef	__thumb__
 	blo	_AES_cbc_encrypt
 #else
-	bhs	1f
+	bhs	Lcbc_do_bsaes
 	b	_AES_cbc_encrypt
-1:
+Lcbc_do_bsaes:
 #endif
 #endif
 
@@ -1345,12 +1348,12 @@ Lcbc_dec_bzero:@ wipe key schedule [if any]
 	ldmia	sp!, {r4,r5,r6,r7,r8,r9,r10, pc}
 
 
-.globl	_bsaes_ctr32_encrypt_blocks
+.globl	_ossl_bsaes_ctr32_encrypt_blocks
 #ifdef __thumb2__
-.thumb_func	_bsaes_ctr32_encrypt_blocks
+.thumb_func	_ossl_bsaes_ctr32_encrypt_blocks
 #endif
 .align	5
-_bsaes_ctr32_encrypt_blocks:
+_ossl_bsaes_ctr32_encrypt_blocks:
 	cmp	r2, #8			@ use plain AES for
 	blo	Lctr_enc_short			@ small sizes
 
@@ -1574,12 +1577,12 @@ Lctr_enc_short_loop:
 
 	ldmia	sp!, {r4,r5,r6,r7,r8, pc}
 
-.globl	_bsaes_xts_encrypt
+.globl	_ossl_bsaes_xts_encrypt
 #ifdef __thumb2__
-.thumb_func	_bsaes_xts_encrypt
+.thumb_func	_ossl_bsaes_xts_encrypt
 #endif
 .align	4
-_bsaes_xts_encrypt:
+_ossl_bsaes_xts_encrypt:
 	mov	ip, sp
 	stmdb	sp!, {r4,r5,r6,r7,r8,r9,r10, lr}		@ 0x20
 	VFP_ABI_PUSH
@@ -2056,12 +2059,12 @@ Lxts_enc_bzero:@ wipe key schedule [if any]
 
 
 
-.globl	_bsaes_xts_decrypt
+.globl	_ossl_bsaes_xts_decrypt
 #ifdef __thumb2__
-.thumb_func	_bsaes_xts_decrypt
+.thumb_func	_ossl_bsaes_xts_decrypt
 #endif
 .align	4
-_bsaes_xts_decrypt:
+_ossl_bsaes_xts_decrypt:
 	mov	ip, sp
 	stmdb	sp!, {r4,r5,r6,r7,r8,r9,r10, lr}		@ 0x20
 	VFP_ABI_PUSH

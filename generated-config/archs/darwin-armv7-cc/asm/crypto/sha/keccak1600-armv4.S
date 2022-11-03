@@ -1,13 +1,13 @@
 #include "arm_arch.h"
 
-.text
-
 #if defined(__thumb2__)
 .syntax	unified
 .thumb
 #else
 .code	32
 #endif
+
+.text
 
 
 .align	5
@@ -1825,7 +1825,14 @@ Lround2x:
 #endif
 	blo	Lround2x
 
+#if __ARM_ARCH__>=5
 	ldr	pc,[sp,#440]
+#else
+	ldr	lr,[sp,#440]
+	tst	lr,#1
+	moveq	pc,lr		@ be binary compatible with V4, yet
+.word	0xe12fff1e		@ interoperable with Thumb ISA:-)
+#endif
 
 
 
@@ -1864,7 +1871,14 @@ KeccakF1600:
 	stmia	r11, {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9}
 
 	add	sp,sp,#440+20
+#if __ARM_ARCH__>=5
 	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,pc}
+#else
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,lr}
+	tst	lr,#1
+	moveq	pc,lr		@ be binary compatible with V4, yet
+.word	0xe12fff1e		@ interoperable with Thumb ISA:-)
+#endif
 
 .globl	_SHA3_absorb
 #ifdef __thumb2__
@@ -2012,7 +2026,14 @@ Labsorbed:
 Labsorb_abort:
 	add	sp,sp,#456+32
 	mov	r0,r12			@ return value
+#if __ARM_ARCH__>=5
 	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,pc}
+#else
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
+	tst	lr,#1
+	moveq	pc,lr		@ be binary compatible with V4, yet
+.word	0xe12fff1e		@ interoperable with Thumb ISA:-)
+#endif
 
 .globl	_SHA3_squeeze
 #ifdef __thumb2__
@@ -2159,7 +2180,14 @@ Lsqueeze_tail:
 .align	4
 Lsqueeze_done:
 	add	sp,sp,#24
+#if __ARM_ARCH__>=5
 	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,pc}
+#else
+	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,lr}
+	tst	lr,#1
+	moveq	pc,lr		@ be binary compatible with V4, yet
+.word	0xe12fff1e		@ interoperable with Thumb ISA:-)
+#endif
 
 #if __ARM_MAX_ARCH__>=7
 
@@ -2365,7 +2393,7 @@ Loop_neon:
 	subs	r3, r3, #1
 	bne	Loop_neon
 
-.word	0xe12fff1e
+	bx	lr
 
 
 .globl	_SHA3_absorb_neon
