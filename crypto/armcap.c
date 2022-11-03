@@ -1,7 +1,7 @@
 /*
- * Copyright 2011-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2011-2022 The OpenSSL Project Authors. All Rights Reserved.
  *
- * Licensed under the OpenSSL license (the "License").  You may not use
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
@@ -30,11 +30,16 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <openssl/crypto.h>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 #include "internal/cryptlib.h"
 
 #include "arm_arch.h"
 
 unsigned int OPENSSL_armcap_P = 0;
+unsigned int OPENSSL_arm_midr = 0;
+unsigned int OPENSSL_armv8_rsa_neonized = 0;
 
 #if __ARM_MAX_ARCH__<7
 void OPENSSL_cpuid_setup(void)
@@ -153,6 +158,7 @@ static unsigned long getauxval(unsigned long key)
 #  define HWCAP_CE_PMULL         (1 << 4)
 #  define HWCAP_CE_SHA1          (1 << 5)
 #  define HWCAP_CE_SHA256        (1 << 6)
+#  define HWCAP_CPUID            (1 << 11)
 #  define HWCAP_CE_SHA512        (1 << 21)
 # endif
 
@@ -520,6 +526,9 @@ void OPENSSL_cpuid_setup(void)
 #  ifdef __aarch64__
         if (hwcap & HWCAP_CE_SHA512)
             OPENSSL_armcap_P |= ARMV8_SHA512;
+
+        if (hwcap & HWCAP_CPUID)
+            OPENSSL_armcap_P |= ARMV8_CPUID;
 #  endif
     }
 
