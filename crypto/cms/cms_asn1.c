@@ -83,6 +83,7 @@ ASN1_NDEF_SEQUENCE(CMS_SignedData) = {
         ASN1_IMP_SET_OF_OPT(CMS_SignedData, crls, CMS_RevocationInfoChoice, 1),
         ASN1_SET_OF(CMS_SignedData, signerInfos, CMS_SignerInfo)
 } ASN1_NDEF_SEQUENCE_END(CMS_SignedData)
+IMPLEMENT_ASN1_ALLOC_FUNCTIONS(CMS_SignedData)
 
 ASN1_SEQUENCE(CMS_OriginatorInfo) = {
         ASN1_IMP_SET_OF_OPT(CMS_OriginatorInfo, certificates, CMS_CertificateChoices, 0),
@@ -304,7 +305,7 @@ static int cms_cb(int operation, ASN1_VALUE **pval, const ASN1_ITEM *it,
     case ASN1_OP_STREAM_PRE:
         if (CMS_stream(&sarg->boundary, cms) <= 0)
             return 0;
-        /* fall thru */
+        /* fall through */
     case ASN1_OP_DETACHED_PRE:
         sarg->ndef_bio = CMS_dataInit(cms, sarg->out);
         if (!sarg->ndef_bio)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -499,6 +499,7 @@ static int test_bad_dtls(void)
             || !TEST_true(SSL_CTX_set_cipher_list(ctx, "AES128-SHA")))
         goto end;
 
+    SSL_CTX_set_security_level(ctx, 0);
     con = SSL_new(ctx);
     if (!TEST_ptr(con)
             || !TEST_true(SSL_set_session(con, sess)))

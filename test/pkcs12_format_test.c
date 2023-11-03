@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2020-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
-#include "internal/nelem.h"
 
 #include <openssl/pkcs12.h>
 #include <openssl/x509.h>
@@ -202,6 +200,19 @@ static const PKCS12_ATTR ATTRS2[] = {
     { "friendlyName", "janet" },
     { "localKeyID", "987654321" },
     { "1.2.3.5.8.13", "AnotherCustomAttribute" },
+    { NULL, NULL }
+};
+
+static const PKCS12_ATTR ATTRS3[] = {
+    { "friendlyName", "wildduk" },
+    { "localKeyID", "1122334455" },
+    { "oracle-jdk-trustedkeyusage", "anyExtendedKeyUsage" },
+    { NULL, NULL }
+};
+
+static const PKCS12_ATTR ATTRS4[] = {
+    { "friendlyName", "wildduk" },
+    { "localKeyID", "1122334455" },
     { NULL, NULL }
 };
 
@@ -426,7 +437,7 @@ static int test_single_key_enc_iter(int z)
 static int test_single_key_with_attrs(void)
 {
     PKCS12_BUILDER *pb = new_pkcs12_builder("1keyattrs.p12");
-    
+
     /* Generate/encode */
     start_pkcs12(pb);
 
@@ -522,7 +533,7 @@ static int test_single_cert_mac_iter(int z)
 static int test_cert_key_with_attrs_and_mac(void)
 {
     PKCS12_BUILDER *pb = new_pkcs12_builder("1cert1key.p12");
-    
+
     /* Generate/encode */
     start_pkcs12(pb);
 
@@ -553,7 +564,7 @@ static int test_cert_key_with_attrs_and_mac(void)
 static int test_cert_key_encrypted_content(void)
 {
     PKCS12_BUILDER *pb = new_pkcs12_builder("1cert1key_enc.p12");
-    
+
     /* Generate/encode */
     start_pkcs12(pb);
 
@@ -585,7 +596,7 @@ static int test_single_secret_encrypted_content(void)
 {
     PKCS12_BUILDER *pb = new_pkcs12_builder("1secret.p12");
     int custom_nid = get_custom_oid();
-    
+
     /* Generate/encode */
     start_pkcs12(pb);
 
@@ -664,7 +675,7 @@ static int test_multiple_contents(void)
 {
     PKCS12_BUILDER *pb = new_pkcs12_builder("multi_contents.p12");
     int custom_nid = get_custom_oid();
-    
+
     /* Generate/encode */
     start_pkcs12(pb);
 
@@ -706,6 +717,85 @@ static int test_multiple_contents(void)
     end_check_pkcs12(pb);
 
     return end_pkcs12_builder(pb);
+}
+
+static int test_jdk_trusted_attr(void)
+{
+    PKCS12_BUILDER *pb = new_pkcs12_builder("jdk_trusted.p12");
+
+    /* Generate/encode */
+    start_pkcs12(pb);
+
+        start_contentinfo(pb);
+
+            add_certbag(pb, CERT1, sizeof(CERT1), ATTRS3);
+
+        end_contentinfo(pb);
+
+    end_pkcs12_with_mac(pb, &mac_default);
+
+    /* Read/decode */
+    start_check_pkcs12_with_mac(pb, &mac_default);
+
+        start_check_contentinfo(pb);
+
+            check_certbag(pb, CERT1, sizeof(CERT1), ATTRS3);
+
+        end_check_contentinfo(pb);
+
+    end_check_pkcs12(pb);
+
+    return end_pkcs12_builder(pb);
+}
+
+static int test_set0_attrs(void)
+{
+    PKCS12_BUILDER *pb = new_pkcs12_builder("attrs.p12");
+    PKCS12_SAFEBAG *bag = NULL;
+    STACK_OF(X509_ATTRIBUTE) *attrs = NULL;
+    X509_ATTRIBUTE *attr = NULL;
+
+    start_pkcs12(pb);
+
+        start_contentinfo(pb);
+
+            /* Add cert and attrs (name/locakkey only) */
+            add_certbag(pb, CERT1, sizeof(CERT1), ATTRS4);
+
+            bag = sk_PKCS12_SAFEBAG_value(pb->bags, 0);
+            attrs = (STACK_OF(X509_ATTRIBUTE)*)PKCS12_SAFEBAG_get0_attrs(bag);
+
+            /* Create new attr, add to list and confirm return attrs is not NULL */
+            attr = X509_ATTRIBUTE_create(NID_oracle_jdk_trustedkeyusage, V_ASN1_OBJECT, OBJ_txt2obj("anyExtendedKeyUsage", 0));
+            X509at_add1_attr(&attrs, attr);
+            PKCS12_SAFEBAG_set0_attrs(bag, attrs);
+            attrs = (STACK_OF(X509_ATTRIBUTE)*)PKCS12_SAFEBAG_get0_attrs(bag);
+            X509_ATTRIBUTE_free(attr);
+            if(!TEST_ptr(attrs)) {
+                goto err;
+            }
+
+        end_contentinfo(pb);
+
+    end_pkcs12(pb);
+
+    /* Read/decode */
+    start_check_pkcs12(pb);
+
+        start_check_contentinfo(pb);
+
+            /* Use existing check functionality to confirm cert bag attrs identical to ATTRS3 */
+            check_certbag(pb, CERT1, sizeof(CERT1), ATTRS3);
+
+        end_check_contentinfo(pb);
+
+    end_check_pkcs12(pb);
+
+    return end_pkcs12_builder(pb);
+
+err:
+    (void)end_pkcs12_builder(pb);
+    return 0;
 }
 
 #ifndef OPENSSL_NO_DES
@@ -792,6 +882,70 @@ err:
 }
 #endif
 
+static int pkcs12_recreate_test(void)
+{
+    int ret = 0;
+    X509 *cert = NULL;
+    X509 *cert_parsed = NULL;
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY *pkey_parsed = NULL;
+    PKCS12 *p12 = NULL;
+    PKCS12 *p12_parsed = NULL;
+    PKCS12 *p12_recreated = NULL;
+    const unsigned char *cert_bytes = CERT1;
+    const unsigned char *key_bytes = KEY1;
+    BIO *bio = NULL;
+
+    cert = d2i_X509(NULL, &cert_bytes, sizeof(CERT1));
+    if (!TEST_ptr(cert))
+        goto err;
+    pkey = d2i_AutoPrivateKey(NULL, &key_bytes, sizeof(KEY1));
+    if (!TEST_ptr(pkey))
+        goto err;
+    p12 = PKCS12_create("pass", NULL, pkey, cert, NULL, NID_aes_256_cbc,
+                        NID_aes_256_cbc, 2, 1, 0);
+    if (!TEST_ptr(p12))
+        goto err;
+    if (!TEST_int_eq(ERR_peek_error(), 0))
+        goto err;
+
+    bio = BIO_new(BIO_s_mem());
+    if (!TEST_ptr(bio))
+        goto err;
+    if (!TEST_int_eq(i2d_PKCS12_bio(bio, p12), 1))
+        goto err;
+    p12_parsed = PKCS12_init_ex(NID_pkcs7_data, testctx, NULL);
+    if (!TEST_ptr(p12_parsed))
+        goto err;
+    p12_parsed = d2i_PKCS12_bio(bio, &p12_parsed);
+    if (!TEST_ptr(p12_parsed))
+        goto err;
+    if (!TEST_int_eq(PKCS12_parse(p12_parsed, "pass", &pkey_parsed,
+                                  &cert_parsed, NULL), 1))
+        goto err;
+
+    /* cert_parsed also contains auxiliary data */
+    p12_recreated = PKCS12_create("new_pass", NULL, pkey_parsed, cert_parsed,
+                                  NULL, NID_aes_256_cbc, NID_aes_256_cbc,
+                                  2, 1, 0);
+    if (!TEST_ptr(p12_recreated))
+        goto err;
+    if (!TEST_int_eq(ERR_peek_error(), 0))
+        goto err;
+
+    ret = 1;
+err:
+    BIO_free(bio);
+    PKCS12_free(p12);
+    PKCS12_free(p12_parsed);
+    PKCS12_free(p12_recreated);
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_free(pkey_parsed);
+    X509_free(cert);
+    X509_free(cert_parsed);
+    return ret;
+}
+
 typedef enum OPTION_choice {
     OPT_ERR = -1,
     OPT_EOF = 0,
@@ -873,6 +1027,8 @@ int setup_tests(void)
     if (default_libctx)
         ADD_TEST(pkcs12_create_test);
 #endif
+    if (default_libctx)
+        ADD_TEST(pkcs12_recreate_test);
     ADD_ALL_TESTS(test_single_key_enc_pass, OSSL_NELEM(passwords));
     ADD_ALL_TESTS(test_single_key_enc_iter, OSSL_NELEM(iters));
     ADD_TEST(test_single_key_with_attrs);
@@ -883,6 +1039,8 @@ int setup_tests(void)
     ADD_TEST(test_cert_key_encrypted_content);
     ADD_TEST(test_single_secret_encrypted_content);
     ADD_TEST(test_multiple_contents);
+    ADD_TEST(test_jdk_trusted_attr);
+    ADD_TEST(test_set0_attrs);
     return 1;
 }
 

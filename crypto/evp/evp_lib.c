@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -209,7 +209,7 @@ int evp_cipher_asn1_to_param_ex(EVP_CIPHER_CTX *c, ASN1_TYPE *type,
             break;
 
         default:
-            ret = EVP_CIPHER_get_asn1_iv(c, type);
+            ret = EVP_CIPHER_get_asn1_iv(c, type) >= 0 ? 1 : -1;
         }
     } else if (cipher->prov != NULL) {
         OSSL_PARAM params[3], *p = params;
@@ -602,7 +602,7 @@ int EVP_CIPHER_CTX_get_updated_iv(EVP_CIPHER_CTX *ctx, void *buf, size_t len)
 
     params[0] =
         OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_UPDATED_IV, buf, len);
-    return evp_do_ciph_ctx_getparams(ctx->cipher, ctx->algctx, params);
+    return evp_do_ciph_ctx_getparams(ctx->cipher, ctx->algctx, params) > 0;
 }
 
 int EVP_CIPHER_CTX_get_original_iv(EVP_CIPHER_CTX *ctx, void *buf, size_t len)
@@ -611,7 +611,7 @@ int EVP_CIPHER_CTX_get_original_iv(EVP_CIPHER_CTX *ctx, void *buf, size_t len)
 
     params[0] =
         OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_IV, buf, len);
-    return evp_do_ciph_ctx_getparams(ctx->cipher, ctx->algctx, params);
+    return evp_do_ciph_ctx_getparams(ctx->cipher, ctx->algctx, params) > 0;
 }
 
 unsigned char *EVP_CIPHER_CTX_buf_noconst(EVP_CIPHER_CTX *ctx)
@@ -652,14 +652,28 @@ int EVP_CIPHER_get_key_length(const EVP_CIPHER *cipher)
 
 int EVP_CIPHER_CTX_get_key_length(const EVP_CIPHER_CTX *ctx)
 {
-    int ok;
-    size_t v = ctx->key_len;
-    OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+    if (ctx->key_len <= 0 && ctx->cipher->prov != NULL) {
+        int ok;
+        OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+        size_t len;
 
-    params[0] = OSSL_PARAM_construct_size_t(OSSL_CIPHER_PARAM_KEYLEN, &v);
-    ok = evp_do_ciph_ctx_getparams(ctx->cipher, ctx->algctx, params);
+        params[0] = OSSL_PARAM_construct_size_t(OSSL_CIPHER_PARAM_KEYLEN, &len);
+        ok = evp_do_ciph_ctx_getparams(ctx->cipher, ctx->algctx, params);
+        if (ok <= 0)
+            return EVP_CTRL_RET_UNSUPPORTED;
 
-    return ok != 0 ? (int)v : EVP_CTRL_RET_UNSUPPORTED;
+        /*-
+         * The if branch should never be taken since EVP_MAX_KEY_LENGTH is
+         * less than INT_MAX but best to be safe.
+         *
+         * Casting away the const is annoying but required here.  We need to
+         * cache the result for performance reasons.
+         */
+        if (!OSSL_PARAM_get_int(params, &((EVP_CIPHER_CTX *)ctx)->key_len))
+            return -1;
+        ((EVP_CIPHER_CTX *)ctx)->key_len = (int)len;
+    }
+    return ctx->key_len;
 }
 
 int EVP_CIPHER_get_nid(const EVP_CIPHER *cipher)
@@ -838,10 +852,10 @@ EVP_MD *EVP_MD_meth_dup(const EVP_MD *md)
         return NULL;
 
     if ((to = EVP_MD_meth_new(md->type, md->pkey_type)) != NULL) {
-        CRYPTO_RWLOCK *lock = to->lock;
+        CRYPTO_REF_COUNT refcnt = to->refcnt;
 
         memcpy(to, md, sizeof(*to));
-        to->lock = lock;
+        to->refcnt = refcnt;
         to->origin = EVP_ORIG_METH;
     }
     return to;
@@ -851,7 +865,7 @@ void evp_md_free_int(EVP_MD *md)
 {
     OPENSSL_free(md->type_name);
     ossl_provider_free(md->prov);
-    CRYPTO_THREAD_lock_free(md->lock);
+    CRYPTO_FREE_REF(&md->refcnt);
     OPENSSL_free(md);
 }
 
@@ -1201,7 +1215,8 @@ EVP_PKEY *EVP_PKEY_Q_keygen(OSSL_LIB_CTX *libctx, const char *propq,
     } else if (OPENSSL_strcasecmp(type, "ED25519") != 0
                && OPENSSL_strcasecmp(type, "X25519") != 0
                && OPENSSL_strcasecmp(type, "ED448") != 0
-               && OPENSSL_strcasecmp(type, "X448") != 0) {
+               && OPENSSL_strcasecmp(type, "X448") != 0
+               && OPENSSL_strcasecmp(type, "SM2") != 0) {
         ERR_raise(ERR_LIB_EVP, ERR_R_PASSED_INVALID_ARGUMENT);
         goto end;
     }

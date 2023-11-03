@@ -87,6 +87,8 @@ Disabled by default. Use I<enable-rc5> config option to enable.
 
 =item PBKDF1
 
+=item PVKKDF
+
 =back
 
 =begin comment
@@ -114,6 +116,10 @@ L<OSSL_PARAM(3)>,
 L<openssl-core.h(7)>,
 L<openssl-core_dispatch.h(7)>,
 L<provider(7)>
+
+=head1 HISTORY
+
+This functionality was added in OpenSSL 3.0.
 
 =head1 COPYRIGHT
 

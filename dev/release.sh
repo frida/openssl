@@ -228,7 +228,7 @@ elif $force; then
     :
 else
     echo >&2 "Not in master or any recognised release branch"
-    echo >&2 "Please 'git checkout' an approprite branch"
+    echo >&2 "Please 'git checkout' an appropriate branch"
     exit 1
 fi
 orig_HEAD=$(git rev-parse HEAD)
@@ -354,11 +354,11 @@ fi
 set_version
 
 if [ -n "$PRE_LABEL" ]; then
-    release="$VERSION-$PRE_RELEASE_TAG$BUILD_METADATA"
-    release_text="$SERIES$BUILD_METADATA $PRE_LABEL $PRE_NUM"
+    release="$VERSION$_PRE_RELEASE_TAG$_BUILD_METADATA"
+    release_text="$SERIES$_BUILD_METADATA $PRE_LABEL $PRE_NUM"
     announce_template=openssl-announce-pre-release.tmpl
 else
-    release="$VERSION$BUILD_METADATA"
+    release="$VERSION$_BUILD_METADATA"
     release_text="$release"
     announce_template=openssl-announce-release.tmpl
 fi
@@ -373,7 +373,7 @@ for fixup in "$HERE/dev/release-aux"/fixup-*-release.pl; do
         perl -pi $fixup $file
 done
 
-$VERBOSE "== Comitting updates and tagging"
+$VERBOSE "== Committing updates and tagging"
 git add -u
 git commit $git_quiet -m "Prepare for release of $release_text"$'\n\nRelease: yes'
 if [ -n "$reviewers" ]; then
@@ -458,10 +458,10 @@ prev_release_date="$RELEASE_DATE"
 next_release_state "$next_method2"
 set_version
 
-release="$VERSION-$PRE_RELEASE_TAG$BUILD_METADATA"
-release_text="$VERSION$BUILD_METADATA"
+release="$VERSION$_PRE_RELEASE_TAG$_BUILD_METADATA"
+release_text="$VERSION$_BUILD_METADATA"
 if [ -n "$PRE_LABEL" ]; then
-    release_text="$SERIES$BUILD_METADATA $PRE_LABEL $PRE_NUM"
+    release_text="$SERIES$_BUILD_METADATA $PRE_LABEL $PRE_NUM"
 fi
 $VERBOSE "== Updated version information to $release"
 
@@ -494,8 +494,8 @@ if $do_branch; then
     next_release_state "minor"
     set_version
 
-    release="$VERSION-$PRE_RELEASE_TAG$BUILD_METADATA"
-    release_text="$SERIES$BUILD_METADATA"
+    release="$VERSION$_PRE_RELEASE_TAG$_BUILD_METADATA"
+    release_text="$SERIES$_BUILD_METADATA"
     $VERBOSE "== Updated version information to $release"
 
     $VERBOSE "== Updating files for $release :"
@@ -802,6 +802,10 @@ This is normally not seen in the git workspace, but should always be what's
 found in the tar file of a regular release.
 
 =back
+
+=item B<BUILD_METADATA>
+
+Extra build metadata to be used by anyone for their own purposes.
 
 =item B<RELEASE_DATE>
 

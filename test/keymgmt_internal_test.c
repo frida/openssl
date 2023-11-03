@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -227,7 +227,7 @@ static int test_pass_rsa(FIXTURE *fixture)
     while (dup_pk == NULL) {
         ret = 0;
         km = km3;
-        /* Check that we can't export an RSA key into a RSA-PSS keymanager */
+        /* Check that we can't export an RSA key into an RSA-PSS keymanager */
         if (!TEST_ptr_null(provkey2 = evp_pkey_export_to_provider(pk, NULL,
                                                                   &km,
                                                                   NULL)))

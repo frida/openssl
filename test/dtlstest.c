@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -125,7 +125,7 @@ static int test_dtls_unprocessed(int testidx)
      * they will fail to decrypt.
      */
     if (!TEST_true(create_bare_ssl_connection(serverssl1, clientssl1,
-                                              SSL_ERROR_NONE, 0)))
+                                              SSL_ERROR_NONE, 0, 0)))
         goto end;
 
     if (timer_cb_count == 0) {
@@ -425,6 +425,12 @@ static int test_just_finished(void)
                                        &sctx, NULL, cert, privkey)))
         return 0;
 
+#ifdef OPENSSL_NO_DTLS1_2
+    /* DTLSv1 is not allowed at the default security level */
+    if (!TEST_true(SSL_CTX_set_cipher_list(sctx, "DEFAULT:@SECLEVEL=0")))
+        goto end;
+#endif
+
     serverssl = SSL_new(sctx);
     rbio = BIO_new(BIO_s_mem());
     wbio = BIO_new(BIO_s_mem());
@@ -463,10 +469,13 @@ static int test_just_finished(void)
 }
 
 /*
- * Test that swapping an app data record so that it is received before the
- * Finished message still works.
+ * Test that swapping later records before Finished or CCS still works
+ * Test 0: Test receiving a handshake record early from next epoch on server side
+ * Test 1: Test receiving a handshake record early from next epoch on client side
+ * Test 2: Test receiving an app data record early from next epoch on client side
+ * Test 3: Test receiving an app data before Finished on client side
  */
-static int test_swap_app_data(void)
+static int test_swap_records(int idx)
 {
     SSL_CTX *sctx = NULL, *cctx = NULL;
     SSL *sssl = NULL, *cssl = NULL;
@@ -508,18 +517,39 @@ static int test_swap_app_data(void)
     if (!TEST_int_le(SSL_connect(cssl), 0))
         goto end;
 
-    /* Recv flight 3, send flight 4: datagram 1(NST, CCS) datagram 2(Finished) */
+    if (idx == 0) {
+        /* Swap Finished and CCS within the datagram */
+        bio = SSL_get_wbio(cssl);
+        if (!TEST_ptr(bio)
+                || !TEST_true(mempacket_swap_epoch(bio)))
+            goto end;
+    }
+
+    /* Recv flight 3, send flight 4: datagram 0(NST, CCS) datagram 1(Finished) */
     if (!TEST_int_gt(SSL_accept(sssl), 0))
         goto end;
 
-    /* Send flight 5: app data */
+    /* Send flight 4 (cont'd): datagram 2(app data) */
     if (!TEST_int_eq(SSL_write(sssl, msg, sizeof(msg)), (int)sizeof(msg)))
         goto end;
 
     bio = SSL_get_wbio(sssl);
-    if (!TEST_ptr(bio)
-            || !TEST_true(mempacket_swap_recent(bio)))
+    if (!TEST_ptr(bio))
         goto end;
+    if (idx == 1) {
+        /* Finished comes before NST/CCS */
+        if (!TEST_true(mempacket_move_packet(bio, 0, 1)))
+            goto end;
+    } else if (idx == 2) {
+        /* App data comes before NST/CCS */
+        if (!TEST_true(mempacket_move_packet(bio, 0, 2)))
+            goto end;
+    } else if (idx == 3) {
+        /* App data comes before Finished */
+        bio = SSL_get_wbio(sssl);
+        if (!TEST_true(mempacket_move_packet(bio, 1, 2)))
+            goto end;
+    }
 
     /*
      * Recv flight 4 (datagram 1): NST, CCS, + flight 5: app data
@@ -528,15 +558,22 @@ static int test_swap_app_data(void)
     if (!TEST_int_gt(SSL_connect(cssl), 0))
         goto end;
 
-    /* The app data should be buffered already */
-    if (!TEST_int_eq(SSL_pending(cssl), (int)sizeof(msg))
-            || !TEST_true(SSL_has_pending(cssl)))
-        goto end;
+    if (idx == 0 || idx == 1) {
+        /* App data was not received early, so it should not be pending */
+        if (!TEST_int_eq(SSL_pending(cssl), 0)
+                || !TEST_false(SSL_has_pending(cssl)))
+            goto end;
+
+    } else {
+        /* We received the app data early so it should be buffered already */
+        if (!TEST_int_eq(SSL_pending(cssl), (int)sizeof(msg))
+                || !TEST_true(SSL_has_pending(cssl)))
+            goto end;
+    }
 
     /*
-     * Recv flight 5 (app data)
-     * We already buffered this so it should be available.
-     */
+    * Recv flight 5 (app data)
+    */
     if (!TEST_int_eq(SSL_read(cssl, buf, sizeof(buf)), (int)sizeof(msg)))
         goto end;
 
@@ -546,6 +583,56 @@ static int test_swap_app_data(void)
     SSL_free(sssl);
     SSL_CTX_free(cctx);
     SSL_CTX_free(sctx);
+
+    return testresult;
+}
+
+/* Confirm that we can create a connections using DTLSv1_listen() */
+static int test_listen(void)
+{
+    SSL_CTX *sctx = NULL, *cctx = NULL;
+    SSL *serverssl = NULL, *clientssl = NULL;
+    int testresult = 0;
+
+    if (!TEST_true(create_ssl_ctx_pair(NULL, DTLS_server_method(),
+                                       DTLS_client_method(),
+                                       DTLS1_VERSION, 0,
+                                       &sctx, &cctx, cert, privkey)))
+        return 0;
+
+#ifdef OPENSSL_NO_DTLS1_2
+    /* Default sigalgs are SHA1 based in <DTLS1.2 which is in security level 0 */
+    if (!TEST_true(SSL_CTX_set_cipher_list(sctx, "DEFAULT:@SECLEVEL=0"))
+            || !TEST_true(SSL_CTX_set_cipher_list(cctx,
+                                                  "DEFAULT:@SECLEVEL=0")))
+        goto end;
+#endif
+
+    SSL_CTX_set_cookie_generate_cb(sctx, generate_cookie_cb);
+    SSL_CTX_set_cookie_verify_cb(sctx, verify_cookie_cb);
+
+    if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
+                                      NULL, NULL)))
+        goto end;
+
+    DTLS_set_timer_cb(clientssl, timer_cb);
+    DTLS_set_timer_cb(serverssl, timer_cb);
+
+    /*
+     * The last parameter to create_bare_ssl_connection() requests that
+     * DTLSv1_listen() is used.
+     */
+    if (!TEST_true(create_bare_ssl_connection(serverssl, clientssl,
+                                              SSL_ERROR_NONE, 1, 1)))
+        goto end;
+
+    testresult = 1;
+ end:
+    SSL_free(serverssl);
+    SSL_free(clientssl);
+    SSL_CTX_free(sctx);
+    SSL_CTX_free(cctx);
+
     return testresult;
 }
 
@@ -569,7 +656,8 @@ int setup_tests(void)
     ADD_TEST(test_cookie);
     ADD_TEST(test_dtls_duplicate_records);
     ADD_TEST(test_just_finished);
-    ADD_TEST(test_swap_app_data);
+    ADD_ALL_TESTS(test_swap_records, 4);
+    ADD_TEST(test_listen);
 
     return 1;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2015-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright (c) 2013-2014 Timo Teräs <timo.teras@gmail.com>
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
@@ -212,11 +212,11 @@ static int handle_symlink(const char *filename, const char *fullpath)
     }
     if (filename[i++] != '.')
         return -1;
-    for (type = OSSL_NELEM(suffixes) - 1; type > 0; type--) {
-        const char *suffix = suffixes[type];
-        if (OPENSSL_strncasecmp(suffix, &filename[i], strlen(suffix)) == 0)
+    for (type = OSSL_NELEM(suffixes) - 1; type > 0; type--)
+        if (OPENSSL_strncasecmp(&filename[i],
+                                suffixes[type], strlen(suffixes[type])) == 0)
             break;
-    }
+
     i += strlen(suffixes[type]);
 
     id = strtoul(&filename[i], &endptr, 10);
@@ -340,6 +340,11 @@ static int ends_with_dirsep(const char *path)
     return *path == '/';
 }
 
+static int sk_strcmp(const char * const *a, const char * const *b)
+{
+    return strcmp(*a, *b);
+}
+
 /*
  * Process a directory; return number of errors found.
  */
@@ -369,7 +374,7 @@ static int do_dir(const char *dirname, enum Hash h)
     if (verbose)
         BIO_printf(bio_out, "Doing %s\n", dirname);
 
-    if ((files = sk_OPENSSL_STRING_new_null()) == NULL) {
+    if ((files = sk_OPENSSL_STRING_new(sk_strcmp)) == NULL) {
         BIO_printf(bio_err, "Skipping %s, out of memory\n", dirname);
         errs = 1;
         goto err;

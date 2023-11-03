@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2007-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright Nokia 2007-2019
  * Copyright Siemens AG 2015-2019
  *
@@ -61,7 +61,7 @@ static CMP_VFY_TEST_FIXTURE *set_up(const char *const test_case_name)
     fixture->test_case_name = test_case_name;
     if (ts == NULL
             || !TEST_ptr(fixture->cmp_ctx = OSSL_CMP_CTX_new(libctx, NULL))
-            || !OSSL_CMP_CTX_set0_trustedStore(fixture->cmp_ctx, ts)
+            || !OSSL_CMP_CTX_set0_trusted(fixture->cmp_ctx, ts)
             || !OSSL_CMP_CTX_set_log_cb(fixture->cmp_ctx, print_to_bio_out)) {
         tear_down(fixture);
         X509_STORE_free(ts);
@@ -83,6 +83,12 @@ static X509 *insta_cert = NULL, *instaca_cert = NULL;
 static unsigned char rand_data[OSSL_CMP_TRANSACTIONID_LENGTH];
 static OSSL_CMP_MSG *ir_unprotected, *ir_rmprotection;
 
+/* secret value used for IP_waitingStatus_PBM.der */
+static const unsigned char sec_1[] = {
+    '9', 'p', 'p', '8', '-', 'b', '3', '5', 'i', '-', 'X', 'd', '3',
+    'Q', '-', 'u', 'd', 'N', 'R'
+};
+
 static int flip_bit(ASN1_BIT_STRING *bitstr)
 {
     int bit_num = 7;
@@ -98,6 +104,7 @@ static int execute_verify_popo_test(CMP_VFY_TEST_FIXTURE *fixture)
     if (fixture->expected == 0) {
         const OSSL_CRMF_MSGS *reqs = fixture->msg->body->value.ir;
         const OSSL_CRMF_MSG *req = sk_OSSL_CRMF_MSG_value(reqs, 0);
+
         if (req == NULL || !flip_bit(req->popo->value.signature->signature))
             return 0;
     }
@@ -124,16 +131,20 @@ static int test_verify_popo_bad(void)
 }
 #endif
 
+/* indirectly checks also OSSL_CMP_validate_msg() */
 static int execute_validate_msg_test(CMP_VFY_TEST_FIXTURE *fixture)
 {
-    return TEST_int_eq(fixture->expected,
-                       ossl_cmp_msg_check_update(fixture->cmp_ctx, fixture->msg,
-                                                 NULL, 0));
+    int res = TEST_int_eq(fixture->expected,
+                          ossl_cmp_msg_check_update(fixture->cmp_ctx,
+                                                    fixture->msg, NULL, 0));
+    X509 *validated = OSSL_CMP_CTX_get0_validatedSrvCert(fixture->cmp_ctx);
+
+    return res && (!fixture->expected || TEST_ptr_eq(validated, fixture->cert));
 }
 
 static int execute_validate_cert_path_test(CMP_VFY_TEST_FIXTURE *fixture)
 {
-    X509_STORE *ts = OSSL_CMP_CTX_get0_trustedStore(fixture->cmp_ctx);
+    X509_STORE *ts = OSSL_CMP_CTX_get0_trusted(fixture->cmp_ctx);
     int res = TEST_int_eq(fixture->expected,
                           OSSL_CMP_validate_cert_path(fixture->cmp_ctx,
                                                       ts, fixture->cert));
@@ -142,19 +153,15 @@ static int execute_validate_cert_path_test(CMP_VFY_TEST_FIXTURE *fixture)
     return res;
 }
 
-static int test_validate_msg_mac_alg_protection(void)
+static int test_validate_msg_mac_alg_protection(int miss, int wrong)
 {
-    /* secret value belonging to cmp-test/CMP_IP_waitingStatus_PBM.der */
-    const unsigned char sec_1[] = {
-        '9', 'p', 'p', '8', '-', 'b', '3', '5', 'i', '-', 'X', 'd', '3',
-        'Q', '-', 'u', 'd', 'N', 'R'
-    };
-
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+    fixture->cert = NULL;
 
-    fixture->expected = 1;
-    if (!TEST_true(OSSL_CMP_CTX_set1_secretValue(fixture->cmp_ctx, sec_1,
-                                                 sizeof(sec_1)))
+    fixture->expected = !miss && !wrong;
+    if (!TEST_true(miss ? OSSL_CMP_CTX_set0_trusted(fixture->cmp_ctx, NULL)
+                   : OSSL_CMP_CTX_set1_secretValue(fixture->cmp_ctx, sec_1,
+                                                   wrong ? 4 : sizeof(sec_1)))
             || !TEST_ptr(fixture->msg = load_pkimsg(ip_waiting_f, libctx))) {
         tear_down(fixture);
         fixture = NULL;
@@ -163,7 +170,22 @@ static int test_validate_msg_mac_alg_protection(void)
     return result;
 }
 
+static int test_validate_msg_mac_alg_protection_ok(void)
+{
+    return test_validate_msg_mac_alg_protection(0, 0);
+}
+
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+static int test_validate_msg_mac_alg_protection_missing(void)
+{
+    return test_validate_msg_mac_alg_protection(1, 0);
+}
+
+static int test_validate_msg_mac_alg_protection_wrong(void)
+{
+    return test_validate_msg_mac_alg_protection(0, 1);
+}
+
 static int test_validate_msg_mac_alg_protection_bad(void)
 {
     const unsigned char sec_bad[] = {
@@ -172,6 +194,7 @@ static int test_validate_msg_mac_alg_protection_bad(void)
     };
 
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+    fixture->cert = NULL;
     fixture->expected = 0;
 
     if (!TEST_true(OSSL_CMP_CTX_set1_secretValue(fixture->cmp_ctx, sec_bad,
@@ -187,7 +210,7 @@ static int test_validate_msg_mac_alg_protection_bad(void)
 
 static int add_trusted(OSSL_CMP_CTX *ctx, X509 *cert)
 {
-    return X509_STORE_add_cert(OSSL_CMP_CTX_get0_trustedStore(ctx), cert);
+    return X509_STORE_add_cert(OSSL_CMP_CTX_get0_trusted(ctx), cert);
 }
 
 static int add_untrusted(OSSL_CMP_CTX *ctx, X509 *cert)
@@ -201,8 +224,9 @@ static int test_validate_msg_signature_partial_chain(int expired)
     X509_STORE *ts;
 
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+    fixture->cert = srvcert;
 
-    ts = OSSL_CMP_CTX_get0_trustedStore(fixture->cmp_ctx);
+    ts = OSSL_CMP_CTX_get0_trusted(fixture->cmp_ctx);
     fixture->expected = !expired;
     if (ts == NULL
             || !TEST_ptr(fixture->msg = load_pkimsg(ir_protected_f, libctx))
@@ -211,6 +235,7 @@ static int test_validate_msg_signature_partial_chain(int expired)
         fixture = NULL;
     } else {
         X509_VERIFY_PARAM *vpm = X509_STORE_get0_param(ts);
+
         X509_VERIFY_PARAM_set_flags(vpm, X509_V_FLAG_PARTIAL_CHAIN);
         if (expired)
             X509_VERIFY_PARAM_set_time(vpm, test_time_after_expiration);
@@ -231,25 +256,16 @@ static int test_validate_msg_signature_trusted_expired(void)
 }
 #endif
 
-static int test_validate_msg_signature_srvcert_wrong(void)
+static int test_validate_msg_signature_srvcert(int bad_sig, int miss, int wrong)
 {
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
-    fixture->expected = 0;
+    fixture->cert = srvcert;
+    fixture->expected = !bad_sig && !wrong && !miss;
     if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_f, libctx))
-        || !TEST_true(OSSL_CMP_CTX_set1_srvCert(fixture->cmp_ctx, clcert))) {
-        tear_down(fixture);
-        fixture = NULL;
-    }
-    EXECUTE_TEST(execute_validate_msg_test, tear_down);
-    return result;
-}
-
-static int test_validate_msg_signature_srvcert(int bad_sig)
-{
-    SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
-    fixture->expected = !bad_sig;
-    if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_f, libctx))
-        || !TEST_true(OSSL_CMP_CTX_set1_srvCert(fixture->cmp_ctx, srvcert))
+        || !TEST_true(miss ? OSSL_CMP_CTX_set1_secretValue(fixture->cmp_ctx,
+                                                           sec_1, sizeof(sec_1))
+                      :  OSSL_CMP_CTX_set1_srvCert(fixture->cmp_ctx,
+                                                   wrong? clcert : srvcert))
         || (bad_sig && !flip_bit(fixture->msg->protection))) {
         tear_down(fixture);
         fixture = NULL;
@@ -259,20 +275,33 @@ static int test_validate_msg_signature_srvcert(int bad_sig)
 }
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+static int test_validate_msg_signature_srvcert_missing(void)
+{
+    return test_validate_msg_signature_srvcert(0, 1, 0);
+}
+#endif
+
+static int test_validate_msg_signature_srvcert_wrong(void)
+{
+    return test_validate_msg_signature_srvcert(0, 0, 1);
+}
+
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 static int test_validate_msg_signature_bad(void)
 {
-    return test_validate_msg_signature_srvcert(1);
+    return test_validate_msg_signature_srvcert(1, 0, 0);
 }
 #endif
 
 static int test_validate_msg_signature_sender_cert_srvcert(void)
 {
-    return test_validate_msg_signature_srvcert(0);
+    return test_validate_msg_signature_srvcert(0, 0, 0);
 }
 
 static int test_validate_msg_signature_sender_cert_untrusted(void)
 {
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+    fixture->cert = insta_cert;
     fixture->expected = 1;
     if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_0_extracerts, libctx))
             || !add_trusted(fixture->cmp_ctx, instaca_cert)
@@ -287,6 +316,7 @@ static int test_validate_msg_signature_sender_cert_untrusted(void)
 static int test_validate_msg_signature_sender_cert_trusted(void)
 {
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+    fixture->cert = insta_cert;
     fixture->expected = 1;
     if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_0_extracerts, libctx))
             || !add_trusted(fixture->cmp_ctx, instaca_cert)
@@ -307,17 +337,18 @@ static int test_validate_msg_signature_sender_cert_extracert(void)
         tear_down(fixture);
         fixture = NULL;
     }
+    fixture->cert = sk_X509_value(fixture->msg->extraCerts, 1); /* Insta CA */
     EXECUTE_TEST(execute_validate_msg_test, tear_down);
     return result;
 }
-
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 static int test_validate_msg_signature_sender_cert_absent(void)
 {
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
     fixture->expected = 0;
-    if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_0_extracerts, libctx))) {
+    if (!TEST_ptr(fixture->msg =
+                  load_pkimsg(ir_protected_0_extracerts, libctx))) {
         tear_down(fixture);
         fixture = NULL;
     }
@@ -329,6 +360,7 @@ static int test_validate_msg_signature_sender_cert_absent(void)
 static int test_validate_with_sender(const X509_NAME *name, int expected)
 {
     SETUP_TEST_FIXTURE(CMP_VFY_TEST_FIXTURE, set_up);
+    fixture->cert = srvcert;
     fixture->expected = expected;
     if (!TEST_ptr(fixture->msg = load_pkimsg(ir_protected_f, libctx))
         || !TEST_true(OSSL_CMP_CTX_set1_expected_sender(fixture->cmp_ctx, name))
@@ -369,8 +401,9 @@ static void setup_path(CMP_VFY_TEST_FIXTURE **fixture, X509 *wrong, int expired)
     (*fixture)->cert = endentity2;
     (*fixture)->expected = wrong == NULL && !expired;
     if (expired) {
-        X509_STORE *ts = OSSL_CMP_CTX_get0_trustedStore((*fixture)->cmp_ctx);
+        X509_STORE *ts = OSSL_CMP_CTX_get0_trusted((*fixture)->cmp_ctx);
         X509_VERIFY_PARAM *vpm = X509_STORE_get0_param(ts);
+
         X509_VERIFY_PARAM_set_time(vpm, test_time_after_expiration);
     }
     if (!add_trusted((*fixture)->cmp_ctx, wrong == NULL ? root : wrong)
@@ -417,7 +450,7 @@ static int execute_msg_check_test(CMP_VFY_TEST_FIXTURE *fixture)
                                                fixture->additional_arg)))
         return 0;
 
-    if (fixture->expected == 0) /* error expected aready during above check */
+    if (fixture->expected == 0) /* error expected already during above check */
         return 1;
     return
         TEST_int_eq(0,
@@ -454,6 +487,7 @@ static void setup_check_update(CMP_VFY_TEST_FIXTURE **fixture, int expected,
         (*fixture) = NULL;
     } else if (trid_data != NULL) {
         ASN1_OCTET_STRING *trid = ASN1_OCTET_STRING_new();
+
         if (trid == NULL
             || !ASN1_OCTET_STRING_set(trid, trid_data,
                                       OSSL_CMP_TRANSACTIONID_LENGTH)
@@ -551,10 +585,11 @@ void cleanup_tests(void)
     X509_free(instaca_cert);
     OSSL_CMP_MSG_free(ir_unprotected);
     OSSL_CMP_MSG_free(ir_rmprotection);
+    OSSL_PROVIDER_unload(default_null_provider);
+    OSSL_PROVIDER_unload(provider);
     OSSL_LIB_CTX_free(libctx);
     return;
 }
-
 
 #define USAGE "server.crt client.crt " \
     "EndEntity1.crt EndEntity2.crt " \
@@ -623,7 +658,8 @@ int setup_tests(void)
     if (!TEST_int_eq(1, RAND_bytes(rand_data, OSSL_CMP_TRANSACTIONID_LENGTH)))
         goto err;
     if (!TEST_ptr(ir_unprotected = load_pkimsg(ir_unprotected_f, libctx))
-            || !TEST_ptr(ir_rmprotection = load_pkimsg(ir_rmprotection_f, libctx)))
+            || !TEST_ptr(ir_rmprotection = load_pkimsg(ir_rmprotection_f,
+                                                       libctx)))
         goto err;
 
     /* Message validation tests */
@@ -634,6 +670,7 @@ int setup_tests(void)
     ADD_TEST(test_validate_msg_signature_trusted_ok);
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     ADD_TEST(test_validate_msg_signature_trusted_expired);
+    ADD_TEST(test_validate_msg_signature_srvcert_missing);
 #endif
     ADD_TEST(test_validate_msg_signature_srvcert_wrong);
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
@@ -651,8 +688,10 @@ int setup_tests(void)
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     ADD_TEST(test_validate_msg_unprotected_request);
 #endif
-    ADD_TEST(test_validate_msg_mac_alg_protection);
+    ADD_TEST(test_validate_msg_mac_alg_protection_ok);
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    ADD_TEST(test_validate_msg_mac_alg_protection_missing);
+    ADD_TEST(test_validate_msg_mac_alg_protection_wrong);
     ADD_TEST(test_validate_msg_mac_alg_protection_bad);
 #endif
 

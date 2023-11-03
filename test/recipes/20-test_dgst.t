@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2017-2022 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2017-2023 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -17,7 +17,7 @@ use OpenSSL::Test::Utils;
 
 setup("test_dgst");
 
-plan tests => 12;
+plan tests => 13;
 
 sub tsignverify {
     my $testtext = shift;
@@ -51,6 +51,43 @@ sub tsignverify {
        $testtext.": Expect failure verifying mismatching data");
 }
 
+sub tsignverify_sha512 {
+    my $testtext = shift;
+    my $privkey = shift;
+    my $pubkey = shift;
+
+    my $data_to_sign = srctop_file('test', 'data.bin');
+    my $other_data = srctop_file('test', 'data2.bin');
+
+    my $sigfile = basename($privkey, '.pem') . '.sig';
+    plan tests => 5;
+
+    ok(run(app(['openssl', 'sha512', '-sign', $privkey,
+                '-out', $sigfile,
+                $data_to_sign])),
+       $testtext.": Generating signature using sha512 command");
+
+    ok(run(app(['openssl', 'sha512', '-verify', $pubkey,
+                '-signature', $sigfile,
+                $data_to_sign])),
+       $testtext.": Verify signature with public key using sha512 command");
+
+    ok(run(app(['openssl', 'dgst', '-sha512', '-prverify', $privkey,
+                '-signature', $sigfile,
+                $data_to_sign])),
+       $testtext.": Verify signature with private key");
+
+    ok(run(app(['openssl', 'dgst', '-sha512', '-verify', $pubkey,
+                '-signature', $sigfile,
+                $data_to_sign])),
+       $testtext.": Verify signature with public key");
+
+    ok(!run(app(['openssl', 'dgst', '-sha512', '-verify', $pubkey,
+                 '-signature', $sigfile,
+                 $other_data])),
+       $testtext.": Expect failure verifying mismatching data");
+}
+
 SKIP: {
     skip "RSA is not supported by this OpenSSL build", 1
         if disabled("rsa");
@@ -59,6 +96,12 @@ SKIP: {
         tsignverify("RSA",
                     srctop_file("test","testrsa.pem"),
                     srctop_file("test","testrsapub.pem"));
+    };
+
+    subtest "RSA signature generation and verification with `sha512` CLI" => sub {
+        tsignverify_sha512("RSA",
+                           srctop_file("test","testrsa2048.pem"),
+                           srctop_file("test","testrsa2048pub.pem"));
     };
 }
 
@@ -86,7 +129,7 @@ SKIP: {
 
 SKIP: {
     skip "EdDSA is not supported by this OpenSSL build", 2
-        if disabled("ec");
+        if disabled("ecx");
 
     skip "EdDSA is not supported with `dgst` CLI", 2;
 

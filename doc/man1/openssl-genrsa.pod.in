@@ -28,15 +28,13 @@ B<openssl> B<genrsa>
 [B<-3>]
 [B<-primes> I<num>]
 [B<-verbose>]
+[B<-quiet>]
 [B<-traditional>]
 {- $OpenSSL::safe::opt_r_synopsis -}
 {- $OpenSSL::safe::opt_engine_synopsis -}{- $OpenSSL::safe::opt_provider_synopsis -}
 [B<numbits>]
 
 =head1 DESCRIPTION
-
-This command has been deprecated.
-The L<openssl-genpkey(1)> command should be used instead.
 
 This command generates an RSA private key.
 
@@ -81,6 +79,11 @@ RSA key, which is defined in RFC 8017.
 
 Print extra details about the operations being performed.
 
+=item B<-quiet>
+
+Print fewer details about the operations being performed, which may
+be handy during batch scripts and pipelines.
+
 =item B<-traditional>
 
 Write the key using the traditional PKCS#1 format instead of the PKCS#8 format.
@@ -118,13 +121,9 @@ L<openssl(1)>,
 L<openssl-genpkey(1)>,
 L<openssl-gendsa(1)>
 
-=head1 HISTORY
-
-This command was deprecated in OpenSSL 3.0.
-
 =head1 COPYRIGHT
 
-Copyright 2000-2021 The OpenSSL Project Authors. All Rights Reserved.
+Copyright 2000-2023 The OpenSSL Project Authors. All Rights Reserved.
 
 Licensed under the Apache License 2.0 (the "License").  You may not use
 this file except in compliance with the License.  You can obtain a copy

@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2007-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright Nokia 2007-2019
  * Copyright Siemens AG 2015-2019
  *
@@ -25,7 +25,7 @@
 # include <openssl/x509v3.h>
 # include "crypto/x509.h"
 
-#define IS_NULL_DN(name) (X509_NAME_get_entry(name, 0) == NULL)
+# define IS_NULL_DN(name) (X509_NAME_get_entry(name, 0) == NULL)
 
 /*
  * this structure is used to store the context for CMP sessions
@@ -49,10 +49,13 @@ struct ossl_cmp_ctx_st {
     int keep_alive; /* persistent connection: 0=no, 1=prefer, 2=require */
     int msg_timeout; /* max seconds to wait for each CMP message round trip */
     int total_timeout; /* max number of seconds an enrollment may take, incl. */
+    int tls_used; /* whether to use TLS for client-side HTTP connections */
     /* attempts polling for a response if a 'waiting' PKIStatus is received */
     time_t end_time; /* session start time + totaltimeout */
+# ifndef OPENSSL_NO_HTTP
     OSSL_HTTP_bio_cb_t http_cb;
     void *http_cb_arg; /* allows to store optional argument to cb */
+# endif
 
     /* server authentication */
     /*
@@ -78,7 +81,7 @@ struct ossl_cmp_ctx_st {
     X509 *cert; /* protection cert used to identify and sign for MSG_SIG_ALG */
     STACK_OF(X509) *chain; /* (cached) chain of protection cert including it */
     EVP_PKEY *pkey; /* the key pair corresponding to cert */
-    ASN1_OCTET_STRING *referenceValue; /* optional user name for MSG_MAC_ALG */
+    ASN1_OCTET_STRING *referenceValue; /* optional username for MSG_MAC_ALG */
     ASN1_OCTET_STRING *secretValue; /* password/shared secret for MSG_MAC_ALG */
     /* PBMParameters for MSG_MAC_ALG */
     size_t pbm_slen; /* salt length, currently fixed to 16 */
@@ -101,7 +104,8 @@ struct ossl_cmp_ctx_st {
     /* certificate template */
     EVP_PKEY *newPkey; /* explicit new private/public key for cert enrollment */
     int newPkey_priv; /* flag indicating if newPkey contains private key */
-    X509_NAME *issuer; /* issuer name to used in cert template */
+    X509_NAME *issuer; /* issuer name to used in cert template, also in rr */
+    ASN1_INTEGER *serialNumber; /* certificate serial number to use in rr */
     int days; /* Number of days new certificates are asked to be valid for */
     X509_NAME *subjectName; /* subject name to be used in cert template */
     STACK_OF(GENERAL_NAME) *subjectAltNames; /* to add to the cert template */
@@ -118,7 +122,7 @@ struct ossl_cmp_ctx_st {
     int revocationReason; /* revocation reason code to be included in RR */
     STACK_OF(OSSL_CMP_ITAV) *genm_ITAVs; /* content of general message */
 
-    /* result returned in responses */
+    /* result returned in responses, so far supporting only one certResponse */
     int status; /* PKIStatus of last received IP/CP/KUP/RP/error or -1 */
     OSSL_CMP_PKIFREETEXT *statusString; /* of last IP/CP/KUP/RP/error */
     int failInfoCode; /* failInfoCode of last received IP/CP/KUP/error, or -1 */
@@ -202,6 +206,9 @@ typedef struct ossl_cmp_cakeyupdanncontent_st {
 } OSSL_CMP_CAKEYUPDANNCONTENT;
 DECLARE_ASN1_FUNCTIONS(OSSL_CMP_CAKEYUPDANNCONTENT)
 
+typedef struct ossl_cmp_rootcakeyupdate_st OSSL_CMP_ROOTCAKEYUPDATE;
+DECLARE_ASN1_FUNCTIONS(OSSL_CMP_ROOTCAKEYUPDATE)
+
 /*-
  * declared already here as it will be used in OSSL_CMP_MSG (nested) and
  * infoType and infoValue
@@ -247,6 +254,12 @@ struct ossl_cmp_itav_st {
         OSSL_CMP_MSGS *origPKIMessage;
         /* NID_id_it_suppLangTags - Supported Language Tags */
         STACK_OF(ASN1_UTF8STRING) *suppLangTagsValue;
+        /* NID_id_it_caCerts - CA Certificates */
+        STACK_OF(X509) *caCerts;
+        /* NID_id_it_rootCaCert - Root CA Certificate */
+        X509 *rootCaCert;
+        /* NID_id_it_rootCaKeyUpdate - Root CA Certificate Update */
+        OSSL_CMP_ROOTCAKEYUPDATE *rootCaKeyUpdate;
         /* this is to be used for so far undeclared objects */
         ASN1_TYPE *other;
     } infoValue;
@@ -369,13 +382,15 @@ DECLARE_ASN1_FUNCTIONS(OSSL_CMP_ERRORMSGCONTENT)
  *      -- as is used to create and verify the certificate signature
  *      certReqId   INTEGER,
  *      -- to match this confirmation with the corresponding req/rep
- *      statusInfo  PKIStatusInfo OPTIONAL
+ *      statusInfo  PKIStatusInfo OPTIONAL,
+ *      hashAlg [0] AlgorithmIdentifier OPTIONAL
  *   }
  */
 struct ossl_cmp_certstatus_st {
     ASN1_OCTET_STRING *certHash;
     ASN1_INTEGER *certReqId;
     OSSL_CMP_PKISI *statusInfo;
+    X509_ALGOR *hashAlg; /* 0 */
 } /* OSSL_CMP_CERTSTATUS */;
 DECLARE_ASN1_FUNCTIONS(OSSL_CMP_CERTSTATUS)
 typedef STACK_OF(OSSL_CMP_CERTSTATUS) OSSL_CMP_CERTCONFIRMCONTENT;
@@ -446,7 +461,7 @@ DECLARE_ASN1_FUNCTIONS(OSSL_CMP_POLLREPCONTENT)
 
 /*-
  * PKIHeader ::= SEQUENCE {
- *     pvno                INTEGER     { cmp1999(1), cmp2000(2) },
+ *     pvno                INTEGER     { cmp1999(1), cmp2000(2), cmp2021(3) },
  *     sender              GeneralName,
  *     -- identifies the sender
  *     recipient           GeneralName,
@@ -708,6 +723,7 @@ DECLARE_ASN1_FUNCTIONS(OSSL_CMP_PROTECTEDPART)
  *   }       -- or HMAC [RFC2104, RFC2202])
  */
 /*-
+ *   Not supported:
  *   id-DHBasedMac OBJECT IDENTIFIER ::= {1 2 840 113533 7 66 30}
  *   DHBMParameter ::= SEQUENCE {
  *           owf                 AlgorithmIdentifier,
@@ -729,6 +745,21 @@ DECLARE_ASN1_FUNCTIONS(OSSL_CMP_PROTECTEDPART)
  *           -- self-signed certificate with the identifier certID.
  *   }
  */
+
+/*
+ * RootCaKeyUpdateContent ::= SEQUENCE {
+ *      newWithNew       CMPCertificate,
+ *      newWithOld   [0] CMPCertificate OPTIONAL,
+ *      oldWithNew   [1] CMPCertificate OPTIONAL
+ * }
+ */
+
+struct ossl_cmp_rootcakeyupdate_st {
+    X509 *newWithNew;
+    X509 *newWithOld;
+    X509 *oldWithNew;
+} /* OSSL_CMP_ROOTCAKEYUPDATE */;
+DECLARE_ASN1_FUNCTIONS(OSSL_CMP_ROOTCAKEYUPDATE)
 
 /* from cmp_asn.c */
 int ossl_cmp_asn1_get_int(const ASN1_INTEGER *a);
@@ -777,7 +808,7 @@ int ossl_cmp_print_log(OSSL_CMP_severity level, const OSSL_CMP_CTX *ctx,
 # define ossl_cmp_info(ctx, msg)  ossl_cmp_log(INFO,  ctx, msg)
 # define ossl_cmp_debug(ctx, msg) ossl_cmp_log(DEBUG, ctx, msg)
 # define ossl_cmp_trace(ctx, msg) ossl_cmp_log(TRACE, ctx, msg)
-int ossl_cmp_ctx_set0_validatedSrvCert(OSSL_CMP_CTX *ctx, X509 *cert);
+int ossl_cmp_ctx_set1_validatedSrvCert(OSSL_CMP_CTX *ctx, X509 *cert);
 int ossl_cmp_ctx_set_status(OSSL_CMP_CTX *ctx, int status);
 int ossl_cmp_ctx_set0_statusString(OSSL_CMP_CTX *ctx,
                                    OSSL_CMP_PKIFREETEXT *text);
@@ -789,6 +820,7 @@ int ossl_cmp_ctx_set1_extraCertsIn(OSSL_CMP_CTX *ctx,
                                    STACK_OF(X509) *extraCertsIn);
 int ossl_cmp_ctx_set1_recipNonce(OSSL_CMP_CTX *ctx,
                                  const ASN1_OCTET_STRING *nonce);
+EVP_PKEY *ossl_cmp_ctx_get0_newPubkey(const OSSL_CMP_CTX *ctx);
 
 /* from cmp_status.c */
 int ossl_cmp_pkisi_get_status(const OSSL_CMP_PKISI *si);
@@ -852,7 +884,9 @@ int ossl_cmp_hdr_init(OSSL_CMP_CTX *ctx, OSSL_CMP_PKIHEADER *hdr);
 # define OSSL_CMP_PKIBODY_POLLREP  26
 # define OSSL_CMP_PKIBODY_TYPE_MAX OSSL_CMP_PKIBODY_POLLREP
 /* certReqId for the first - and so far only - certificate request */
-# define OSSL_CMP_CERTREQID 0
+# define OSSL_CMP_CERTREQID         0
+# define OSSL_CMP_CERTREQID_NONE    -1
+# define OSSL_CMP_CERTREQID_INVALID -2
 /* sequence id for the first - and so far only - revocation request */
 # define OSSL_CMP_REVREQSID 0
 int ossl_cmp_msg_set0_libctx(OSSL_CMP_MSG *msg, OSSL_LIB_CTX *libctx,
@@ -885,8 +919,8 @@ OSSL_CMP_MSG *ossl_cmp_error_new(OSSL_CMP_CTX *ctx, const OSSL_CMP_PKISI *si,
                                  int unprotected);
 int ossl_cmp_certstatus_set0_certHash(OSSL_CMP_CERTSTATUS *certStatus,
                                       ASN1_OCTET_STRING *hash);
-OSSL_CMP_MSG *ossl_cmp_certConf_new(OSSL_CMP_CTX *ctx, int fail_info,
-                                    const char *text);
+OSSL_CMP_MSG *ossl_cmp_certConf_new(OSSL_CMP_CTX *ctx, int certReqId,
+                                    int fail_info, const char *text);
 OSSL_CMP_MSG *ossl_cmp_pollReq_new(OSSL_CMP_CTX *ctx, int crid);
 OSSL_CMP_MSG *ossl_cmp_pollRep_new(OSSL_CMP_CTX *ctx, int crid,
                                    int64_t poll_after);
@@ -900,8 +934,8 @@ ossl_cmp_pollrepcontent_get0_pollrep(const OSSL_CMP_POLLREPCONTENT *prc,
 OSSL_CMP_CERTRESPONSE *
 ossl_cmp_certrepmessage_get0_certresponse(const OSSL_CMP_CERTREPMESSAGE *crm,
                                           int rid);
-X509 *ossl_cmp_certresponse_get1_cert(const OSSL_CMP_CERTRESPONSE *crep,
-                                      const OSSL_CMP_CTX *ctx, EVP_PKEY *pkey);
+X509 *ossl_cmp_certresponse_get1_cert(const OSSL_CMP_CTX *ctx,
+                                      const OSSL_CMP_CERTRESPONSE *crep);
 OSSL_CMP_MSG *ossl_cmp_msg_load(const char *file);
 
 /* from cmp_protect.c */
@@ -922,8 +956,8 @@ int ossl_cmp_verify_popo(const OSSL_CMP_CTX *ctx,
                          const OSSL_CMP_MSG *msg, int accept_RAVerified);
 
 /* from cmp_client.c */
-int ossl_cmp_exchange_certConf(OSSL_CMP_CTX *ctx, int fail_info,
-                               const char *txt);
+int ossl_cmp_exchange_certConf(OSSL_CMP_CTX *ctx, int certReqId,
+                               int fail_info, const char *txt);
 int ossl_cmp_exchange_error(OSSL_CMP_CTX *ctx, int status, int fail_info,
                             const char *txt, int errorCode, const char *detail);
 

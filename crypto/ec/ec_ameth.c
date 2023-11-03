@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2006-2021 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -513,8 +513,10 @@ int ec_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
 
     if (pub_point != NULL) {
         /* convert pub_point to a octet string according to the SECG standard */
+        point_conversion_form_t format = EC_KEY_get_conv_form(eckey);
+
         if ((pub_key_buflen = EC_POINT_point2buf(ecg, pub_point,
-                                                 POINT_CONVERSION_COMPRESSED,
+                                                 format,
                                                  &pub_key_buf, bnctx)) == 0
             || !OSSL_PARAM_BLD_push_octet_string(tmpl,
                                                  OSSL_PKEY_PARAM_PUB_KEY,
@@ -566,7 +568,7 @@ int ec_pkey_export_to(const EVP_PKEY *from, void *to_keydata,
         if (ecbits <= 0)
             goto err;
 
-        sz = (ecbits + 7 ) / 8;
+        sz = (ecbits + 7) / 8;
         if (!OSSL_PARAM_BLD_push_BN_pad(tmpl,
                                         OSSL_PKEY_PARAM_PRIV_KEY,
                                         priv_key, sz))
@@ -611,7 +613,7 @@ static int ec_pkey_import_from(const OSSL_PARAM params[], void *vpctx)
     EC_KEY *ec = EC_KEY_new_ex(pctx->libctx, pctx->propquery);
 
     if (ec == NULL) {
-        ERR_raise(ERR_LIB_DH, ERR_R_MALLOC_FAILURE);
+        ERR_raise(ERR_LIB_EC, ERR_R_EC_LIB);
         return 0;
     }
 

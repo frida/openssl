@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2015-2021 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2015-2023 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -13,7 +13,7 @@ use warnings;
 use POSIX;
 use File::Spec::Functions qw/catfile/;
 use File::Compare qw/compare_text compare/;
-use OpenSSL::Test qw/:DEFAULT srctop_dir srctop_file bldtop_dir bldtop_file/;
+use OpenSSL::Test qw/:DEFAULT srctop_dir srctop_file bldtop_dir bldtop_file with data_file/;
 
 use OpenSSL::Test::Utils;
 
@@ -50,7 +50,7 @@ my ($no_des, $no_dh, $no_dsa, $no_ec, $no_ec2m, $no_rc2, $no_zlib)
 
 $no_rc2 = 1 if disabled("legacy");
 
-plan tests => 12;
+plan tests => 22;
 
 ok(run(test(["pkcs7_test"])), "test pkcs7");
 
@@ -64,6 +64,7 @@ my @prov = ("-provider-path", $provpath,
             @config,
             "-provider", $provname);
 
+my $smrsa1024 = catfile($smdir, "smrsa1024.pem");
 my $smrsa1 = catfile($smdir, "smrsa1.pem");
 my $smroot = catfile($smdir, "smroot.pem");
 
@@ -451,10 +452,10 @@ my @smime_cms_cades_tests = (
 my @smime_cms_cades_ko_tests = (
     [ "sign content DER format, RSA key, not CAdES-BES compatible",
       [ @prov, "-sign", "-in", $smcont, "-outform", "DER", "-nodetach",
-        "-certfile", $smroot, "-signer", $smrsa1, "-out", "{output}.cms" ],
+        "-certfile", $smroot, "-signer", $smrsa1, "-out", "cades-ko.cms" ],
       "fail to verify token since requiring CAdES-BES compatibility",
-      [ @prov, "-verify", "-cades", "-in", "{output}.cms", "-inform", "DER",
-        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      [ @prov, "-verify", "-cades", "-in", "cades-ko.cms", "-inform", "DER",
+        "-CAfile", $smroot, "-out", "cades-ko.txt" ],
       \&final_compare
     ]
 );
@@ -498,6 +499,7 @@ my @smime_cms_param_tests = (
         "-signer", $smrsa1,
         "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:max",
         "-out", "{output}.cms" ],
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 222; },
       [ "{cmd2}", @prov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
         "-CAfile", $smroot, "-out", "{output}.txt" ],
       \&final_compare
@@ -518,6 +520,29 @@ my @smime_cms_param_tests = (
         "-signer", $smrsa1,
         "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_mgf1_md:sha384",
         "-out", "{output}.cms" ],
+      [ "{cmd2}", @prov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ],
+
+    [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=16",
+      [ "{cmd1}", @prov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+        "-signer", $smrsa1, "-md", "sha256",
+        "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:16",
+        "-out", "{output}.cms" ],
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 16; },
+      [ "{cmd2}", @prov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ],
+
+    [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=digest",
+      [ "{cmd1}", @prov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+        "-signer", $smrsa1, "-md", "sha256",
+        "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:digest",
+        "-out", "{output}.cms" ],
+      # digest is SHA-256, which produces 32 bytes of output
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 32; },
       [ "{cmd2}", @prov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
         "-CAfile", $smroot, "-out", "{output}.txt" ],
       \&final_compare
@@ -610,6 +635,34 @@ my @smime_cms_param_tests = (
       \&final_compare
     ]
 );
+
+my @smime_cms_param_tests_autodigestmax = (
+    [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=auto-digestmax, digestsize < maximum salt length",
+      [ "{cmd1}", @prov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+        "-signer", $smrsa1, "-md", "sha256",
+        "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:auto-digestmax",
+        "-out", "{output}.cms" ],
+      # digest is SHA-256, which produces 32, bytes of output
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 32; },
+      [ "{cmd2}", @defaultprov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ],
+
+    [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=auto-digestmax, digestsize > maximum salt length",
+      [ "{cmd1}", @defaultprov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+        "-signer", $smrsa1024, "-md", "sha512",
+        "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:auto-digestmax",
+        "-out", "{output}.cms" ],
+      # digest is SHA-512, which produces 64, bytes of output, but an RSA-PSS
+      # signature with a 1024 bit RSA key can only accommodate 62
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 62; },
+      [ "{cmd2}", @defaultprov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ]
+);
+
 
 my @contenttype_cms_test = (
     [ "signed content test - check that content type is added to additional signerinfo, RSA keys",
@@ -708,7 +761,21 @@ subtest "CMS <=> CMS consistency tests\n" => sub {
 
 subtest "CMS <=> CMS consistency tests, modified key parameters\n" => sub {
     plan tests =>
-        (scalar @smime_cms_param_tests) + (scalar @smime_cms_comp_tests);
+        (scalar @smime_cms_param_tests) + (scalar @smime_cms_comp_tests) +
+        (scalar @smime_cms_param_tests_autodigestmax) + 1;
+
+    ok(run(app(["openssl", "cms", @prov,
+                "-sign", "-in", $smcont,
+                "-outform", "PEM",
+                "-nodetach",
+                "-signer", $smrsa1,
+                "-keyopt", "rsa_padding_mode:pss",
+                "-keyopt", "rsa_pss_saltlen:auto-digestmax",
+                "-out", "digestmaxtest.cms"])));
+    # Providers that do not support rsa_pss_saltlen:auto-digestmax will parse
+    # it as 0
+    my $no_autodigestmax = rsapssSaltlen("digestmaxtest.cms") == 0;
+    1 while unlink "digestmaxtest.cms";
 
     runner_loop(prefix => 'cms2cms-mod', cmd1 => 'cms', cmd2 => 'cms',
                 tests => [ @smime_cms_param_tests ]);
@@ -720,6 +787,15 @@ subtest "CMS <=> CMS consistency tests, modified key parameters\n" => sub {
       runner_loop(prefix => 'cms2cms-comp', cmd1 => 'cms', cmd2 => 'cms',
                   tests => [ @smime_cms_comp_tests ]);
     }
+
+  SKIP: {
+    skip("rsa_pss_saltlen:auto-digestmax not supported",
+         scalar @smime_cms_param_tests_autodigestmax)
+       if $no_autodigestmax;
+
+       runner_loop(prefix => 'cms2cms-comp', 'cmd1' => 'cms', cmd2 => 'cms',
+                   tests => [ @smime_cms_param_tests_autodigestmax ]);
+  }
 };
 
 # Returns the number of matches of a Content Type Attribute in a binary file.
@@ -736,6 +812,57 @@ sub contentType_matches {
 
   close(HEX_IN);
   return scalar(@c);
+}
+
+sub rsapssSaltlen {
+  my ($in) = @_;
+  my $exit = 0;
+
+  my @asn1parse = run(app(["openssl", "asn1parse", "-in", $in, "-dump"]),
+                      capture => 1,
+                      statusvar => $exit);
+  return -1 if $exit != 0;
+
+  my $pssparam_offset = -1;
+  while ($_ = shift @asn1parse) {
+    chomp;
+    next unless /:rsassaPss/;
+    # This line contains :rsassaPss, the next line contains a raw dump of the
+    # RSA_PSS_PARAMS sequence; obtain its offset
+    $_ = shift @asn1parse;
+    if (/^\s*(\d+):/) {
+      $pssparam_offset = int($1);
+    }
+  }
+
+  if ($pssparam_offset == -1) {
+    note "Failed to determine RSA_PSS_PARAM offset in CMS. " +
+         "Was the file correctly signed with RSASSA-PSS?";
+    return -1;
+  }
+
+  my @pssparam = run(app(["openssl", "asn1parse", "-in", $in,
+                          "-strparse", $pssparam_offset]),
+                     capture => 1,
+                     statusvar => $exit);
+  return -1 if $exit != 0;
+
+  my $saltlen = -1;
+  # Can't use asn1parse -item RSA_PSS_PARAMS here, because that's deprecated.
+  # This assumes the salt length is the last field, which may possibly be
+  # incorrect if there is a non-standard trailer field, but there almost never
+  # is in PSS.
+  if ($pssparam[-1] =~ /prim:\s+INTEGER\s+:([A-Fa-f0-9]+)/) {
+    $saltlen = hex($1);
+  }
+
+  if ($saltlen == -1) {
+    note "Failed to determine salt length from RSA_PSS_PARAM struct. " +
+         "Was the file correctly signed with RSASSA-PSS?";
+    return -1;
+  }
+
+  return $saltlen;
 }
 
 subtest "CMS Check the content type attribute is added for additional signers\n" => sub {
@@ -757,6 +884,24 @@ subtest "CMS Check that bad attributes fail when verifying signers\n" => sub {
                      catfile($datadir, $name), "-inform", "DER", "-CAfile",
                      $smroot, "-out", $out ])),
             $name);
+    }
+};
+
+subtest "CMS Check that bad encryption algorithm fails\n" => sub {
+    plan tests => 1;
+
+    SKIP: {
+        skip "DES or Legacy isn't supported in this build", 1
+            if disabled("des") || disabled("legacy");
+
+        my $out = "smtst.txt";
+
+        ok(!run(app(["openssl", "cms", @legacyprov, "-encrypt",
+                    "-in", $smcont,
+                    "-stream", "-recip", $smrsa1,
+                    "-des-ede3",
+                    "-out", $out ])),
+           "Decrypt message from OpenSSL 1.1.1");
     }
 };
 
@@ -800,6 +945,7 @@ subtest "CAdES ko tests\n" => sub {
       SKIP: {
         my $skip_reason = check_availability($$_[0]);
         skip $skip_reason, 1 if $skip_reason;
+        1 while unlink "cades-ko.txt";
 
         ok(run(app(["openssl", "cms", @{$$_[1]}])), $$_[0]);
         ok(!run(app(["openssl", "cms", @{$$_[3]}])), $$_[2]);
@@ -847,6 +993,111 @@ subtest "CMS binary input tests\n" => sub {
        "verify binary input with -binary missing -crlfeol");
 };
 
+subtest "CMS signed digest, DER format" => sub {
+    plan tests => 2;
+
+    # Pre-computed SHA256 digest of $smcont in hexadecimal form
+    my $digest = "ff236ef61b396355f75a4cc6e1c306d4c309084ae271a9e2ad6888f10a101b32";
+
+    my $sig_file = "signature.der";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-digest", $digest,
+                    "-outform", "DER",
+                    "-certfile", catfile($smdir, "smroot.pem"),
+                    "-signer", catfile($smdir, "smrsa1.pem"),
+                    "-out", $sig_file])),
+        "CMS sign pre-computed digest, DER format");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-inform", "DER",
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "Verify CMS signed digest, DER format");
+};
+
+subtest "CMS signed digest, S/MIME format" => sub {
+    plan tests => 2;
+
+    # Pre-computed SHA256 digest of $smcont in hexadecimal form
+    my $digest = "ff236ef61b396355f75a4cc6e1c306d4c309084ae271a9e2ad6888f10a101b32";
+
+    my $sig_file = "signature.smime";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-digest", $digest,
+                    "-outform", "SMIME",
+                    "-certfile", catfile($smdir, "smroot.pem"),
+                    "-signer", catfile($smdir, "smrsa1.pem"),
+                    "-out", $sig_file])),
+        "CMS sign pre-computed digest, S/MIME format");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-inform", "SMIME",
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "Verify CMS signed digest, S/MIME format");
+};
+
+subtest "CMS code signing test" => sub {
+    plan tests => 7;
+    my $sig_file = "signature.p7s";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-in", $smcont,
+                   "-certfile", catfile($smdir, "smroot.pem"),
+                   "-signer", catfile($smdir, "smrsa1.pem"),
+                   "-out", $sig_file])),
+       "accept perform CMS signature with smime certificate");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "accept verify CMS signature with smime certificate");
+
+    ok(!run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-purpose", "codesign",
+                    "-content", $smcont])),
+       "fail verify CMS signature with smime certificate for purpose code signing");
+
+    ok(!run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-purpose", "football",
+                    "-content", $smcont])),
+       "fail verify CMS signature with invalid purpose argument");
+
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-in", $smcont,
+                   "-certfile", catfile($smdir, "smroot.pem"),
+                   "-signer", catfile($smdir, "csrsa1.pem"),
+                   "-out", $sig_file])),
+        "accept perform CMS signature with code signing certificate");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-purpose", "codesign",
+                    "-content", $smcont])),
+       "accept verify CMS signature with code signing certificate for purpose code signing");
+
+    ok(!run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "fail verify CMS signature with code signing certificate for purpose smime_sign");
+};
+
+# Test case for missing MD algorithm (must not segfault)
+
+with({ exit_checker => sub { return shift == 4; } },
+    sub {
+        ok(run(app(['openssl', 'smime', '-verify', '-noverify',
+                    '-inform', 'PEM',
+                    '-in', data_file("pkcs7-md4.pem"),
+                   ])),
+            "Check failure of EVP_DigestInit in PKCS7 signed is handled");
+
+        ok(run(app(['openssl', 'smime', '-decrypt',
+                    '-inform', 'PEM',
+                    '-in', data_file("pkcs7-md4-encrypted.pem"),
+                    '-recip', srctop_file("test", "certs", "ee-cert.pem"),
+                    '-inkey', srctop_file("test", "certs", "ee-key.pem")
+                   ])),
+            "Check failure of EVP_DigestInit in PKCS7 signedAndEnveloped is handled");
+    });
+
 sub check_availability {
     my $tnam = shift;
 
@@ -867,3 +1118,50 @@ sub check_availability {
 
     return "";
 }
+
+# Test case for the locking problem reported in #19643.
+# This will fail if the fix is in and deadlock on Windows (and possibly
+# other platforms) if not.
+ok(!run(app(['openssl', 'cms', '-verify',
+             '-CAfile', srctop_file("test/certs", "pkitsta.pem"),
+             '-policy', 'anyPolicy',
+             '-in', srctop_file("test/smime-eml",
+                                "SignedInvalidMappingFromanyPolicyTest7.eml")
+            ])),
+   "issue#19643");
+
+# Check that we get the expected failure return code
+with({ exit_checker => sub { return shift == 6; } },
+    sub {
+        ok(run(app(['openssl', 'cms', '-encrypt',
+                    '-in', srctop_file("test", "smcont.txt"),
+                    '-aes128', '-stream', '-recip',
+                    srctop_file("test/smime-certs", "badrsa.pem"),
+                   ])),
+            "Check failure during BIO setup with -stream is handled correctly");
+    });
+
+# Test case for return value mis-check reported in #21986
+with({ exit_checker => sub { return shift == 3; } },
+    sub {
+        SKIP: {
+          skip "DSA is not supported in this build", 1 if $no_dsa;
+
+          ok(run(app(['openssl', 'cms', '-sign',
+                      '-in', srctop_file("test", "smcont.txt"),
+                      '-signer', srctop_file("test/smime-certs", "smdsa1.pem"),
+                      '-md', 'SHAKE256'])),
+            "issue#21986");
+        }
+    });
+
+# Test for problem reported in #22225
+with({ exit_checker => sub { return shift == 3; } },
+    sub {
+	ok(run(app(['openssl', 'cms', '-encrypt',
+		    '-in', srctop_file("test", "smcont.txt"),
+		    '-aes-256-ctr', '-recip',
+		    catfile($smdir, "smec1.pem"),
+		   ])),
+	   "Check for failure when cipher does not have an assigned OID (issue#22225)");
+     });
