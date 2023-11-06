@@ -904,6 +904,14 @@ int ossl_statem_client_construct_message(SSL *s, WPACKET *pkt,
         break;
 
     case TLS_ST_CW_END_OF_EARLY_DATA:
+#ifndef OPENSSL_NO_QUIC
+        /* QUIC does not send EndOfEarlyData, RFC9001 S8.3 */
+        if (SSL_IS_QUIC(s)) {
+            *confunc = NULL;
+            *mt = SSL3_MT_DUMMY;
+            break;
+        }
+#endif
         *confunc = tls_construct_end_of_early_data;
         *mt = SSL3_MT_END_OF_EARLY_DATA;
         break;
@@ -2251,7 +2259,8 @@ MSG_PROCESS_RETURN tls_process_key_exchange(SSL *s, PACKET *pkt)
                 goto err;
             }
         } else if (!tls1_set_peer_legacy_sigalg(s, pkey)) {
-            SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+            SSLfatal(s, SSL_AD_INTERNAL_ERROR,
+                     SSL_R_LEGACY_SIGALG_DISALLOWED_OR_UNSUPPORTED);
             goto err;
         }
 

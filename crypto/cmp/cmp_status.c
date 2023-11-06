@@ -1,5 +1,5 @@
 /*
- * Copyright 2007-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2007-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright Nokia 2007-2019
  * Copyright Siemens AG 2015-2019
  *
@@ -30,9 +30,12 @@
 
 int ossl_cmp_pkisi_get_status(const OSSL_CMP_PKISI *si)
 {
+    int res ;
+
     if (!ossl_assert(si != NULL && si->status != NULL))
         return -1;
-    return ossl_cmp_asn1_get_int(si->status);
+    res = ossl_cmp_asn1_get_int(si->status);
+    return res == -2 ? -1 : res;
 }
 
 const char *ossl_cmp_PKIStatus_to_string(int status)
@@ -73,9 +76,10 @@ int ossl_cmp_pkisi_get_pkifailureinfo(const OSSL_CMP_PKISI *si)
 
     if (!ossl_assert(si != NULL))
         return -1;
-    for (i = 0; i <= OSSL_CMP_PKIFAILUREINFO_MAX; i++)
-        if (ASN1_BIT_STRING_get_bit(si->failInfo, i))
-            res |= 1 << i;
+    if (si->failInfo != NULL)
+        for (i = 0; i <= OSSL_CMP_PKIFAILUREINFO_MAX; i++)
+            if (ASN1_BIT_STRING_get_bit(si->failInfo, i))
+                res |= 1 << i;
     return res;
 }
 
@@ -189,8 +193,11 @@ char *snprint_PKIStatusInfo_parts(int status, int fail_info,
     printed_chars = BIO_snprintf(write_ptr, bufsize, "%s", status_string);
     ADVANCE_BUFFER;
 
-    /* failInfo is optional and may be empty */
-    if (fail_info != 0) {
+    /*
+     * failInfo is optional and may be empty;
+     * if present, print failInfo before statusString because it is more concise
+     */
+    if (fail_info != -1 && fail_info != 0) {
         printed_chars = BIO_snprintf(write_ptr, bufsize, "; PKIFailureInfo: ");
         ADVANCE_BUFFER;
         for (failure = 0; failure <= OSSL_CMP_PKIFAILUREINFO_MAX; failure++) {

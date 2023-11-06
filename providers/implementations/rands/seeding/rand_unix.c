@@ -36,12 +36,13 @@
 #if defined(__OpenBSD__)
 # include <sys/param.h>
 #endif
-#if defined(__APPLE__)
-# include <CommonCrypto/CommonCrypto.h>
-# include <CommonCrypto/CommonRandom.h>
+#if defined(__DragonFly__)
+# include <sys/param.h>
+# include <sys/random.h>
 #endif
 
-#if defined(OPENSSL_SYS_UNIX) || defined(__DJGPP__)
+#if (defined(OPENSSL_SYS_UNIX) && !defined(OPENSSL_SYS_VXWORKS)) \
+     || defined(__DJGPP__)
 # include <sys/types.h>
 # include <sys/stat.h>
 # include <fcntl.h>

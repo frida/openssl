@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2015-2022 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2015-2023 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -26,7 +26,6 @@ my $no_des = disabled("des");
 my $no_dh = disabled("dh");
 my $no_dsa = disabled("dsa");
 my $no_ec = disabled("ec");
-my $no_gost = disabled("gost");
 my $no_sm2 = disabled("sm2");
 
 # Default config depends on if the legacy module is built or not
@@ -76,7 +75,7 @@ push @files, qw(
                 evppkey_ecdsa.txt
                 evppkey_kas.txt
                 evppkey_mismatch.txt
-               ) unless $no_ec || $no_gost;
+               ) unless $no_ec;
 
 # A list of tests that only run with the default provider
 # (i.e. The algorithms are not present in the fips provider)
@@ -174,7 +173,8 @@ sub test_errors { # actually tests diagnostics of OSSL_STORE
 }
 
 SKIP: {
-    skip "DSA not disabled", 2 if !disabled("dsa");
+    skip "DSA not disabled or ERR disabled", 2
+        if !disabled("dsa") || disabled("err");
 
     ok(test_errors(key => 'server-dsa-key.pem',
                    out => 'server-dsa-key.err'),

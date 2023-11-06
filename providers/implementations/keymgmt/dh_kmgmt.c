@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -198,8 +198,8 @@ static int dh_import(void *keydata, int selection, const OSSL_PARAM params[])
     if ((selection & DH_POSSIBLE_SELECTIONS) == 0)
         return 0;
 
-    if ((selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) != 0)
-        ok = ok && ossl_dh_params_fromdata(dh, params);
+    /* a key without parameters is meaningless */
+    ok = ok && ossl_dh_params_fromdata(dh, params);
 
     if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
         int include_private =
@@ -220,6 +220,9 @@ static int dh_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
     int ok = 1;
 
     if (!ossl_prov_is_running() || dh == NULL)
+        return 0;
+
+    if ((selection & DH_POSSIBLE_SELECTIONS) == 0)
         return 0;
 
     tmpl = OSSL_PARAM_BLD_new();
@@ -389,7 +392,7 @@ static int dh_validate_public(const DH *dh, int checktype)
         && ossl_dh_is_named_safe_prime_group(dh))
         return ossl_dh_check_pub_key_partial(dh, pub_key, &res);
 
-    return DH_check_pub_key(dh, pub_key, &res);
+    return DH_check_pub_key_ex(dh, pub_key);
 }
 
 static int dh_validate_private(const DH *dh)
