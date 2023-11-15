@@ -52,6 +52,7 @@ if (!$is_win) {
         $single_cflag ne '-O3' &&
         $single_cflag !~ /^--sysroot=/ &&
         $single_cflag !~ /^-m(32|64|arch=.+|abi=.+|no-unaligned-access)$/ &&
+        $single_cflag !~ /^-mips/ &&
         $single_cflag ne '-fomit-frame-pointer' &&
         $single_cflag ne '-pthread' &&
         $single_cflag ne '-Wa,--noexecstack' &&

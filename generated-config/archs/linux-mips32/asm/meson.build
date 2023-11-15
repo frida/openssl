@@ -973,7 +973,6 @@ openssl_defines = [
   'OPENSSL_PIC',
 ]
 openssl_cflags = [
-  '-mips2',
 ]
 openssl_libraries = [
   'dl',
