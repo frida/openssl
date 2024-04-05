@@ -27,6 +27,7 @@
 #include <string.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <unistd.h>
 #include <openssl/crypto.h>
 #include <sys/types.h>
 #ifdef __APPLE__
