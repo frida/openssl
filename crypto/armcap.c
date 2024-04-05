@@ -51,14 +51,6 @@ uint32_t OPENSSL_rdtsc(void)
     return 0;
 }
 #else
-static sigset_t all_masked;
-
-static sigjmp_buf ill_jmp;
-static void ill_handler(int sig)
-{
-    siglongjmp(ill_jmp, sig);
-}
-
 /*
  * Following subroutines could have been inlined, but it's not all
  * ARM compilers support inline assembler...
@@ -162,6 +154,7 @@ static unsigned long getauxval(unsigned long key)
 #  ifndef OSSL_IMPLEMENT_GETAUXVAL
 #   define getauxval getauxval_proc
 #   define OSSL_IMPLEMENT_GETAUXVAL
+#   define OSSL_IMPLEMENT_GETAUXVAL_USING_PROC
 #  endif
 
 typedef struct {
@@ -241,6 +234,7 @@ static ssize_t read_eintr(int fd, void *out, size_t len)
     return ret;
 }
 
+#  ifdef OSSL_IMPLEMENT_GETAUXVAL_USING_PROC
 // read_full reads exactly |len| bytes from |fd| to |out|. On error or end of
 // file, it returns zero.
 static int read_full(int fd, void *out, size_t len)
@@ -255,6 +249,7 @@ static int read_full(int fd, void *out, size_t len)
     }
     return 1;
 }
+#  endif
 
 // read_file opens |path| and reads until end-of-file. On success, it returns
 // one and sets |*out_ptr| and |*out_len| to a newly-allocated buffer with the
@@ -304,6 +299,7 @@ err:
     return ret;
 }
 
+#  ifdef OSSL_IMPLEMENT_GETAUXVAL_USING_PROC
 // getauxval_proc behaves like |getauxval| but reads from /proc/self/auxv.
 static unsigned long getauxval_proc(unsigned long type)
 {
@@ -331,6 +327,7 @@ static unsigned long getauxval_proc(unsigned long type)
 
     return 0;
 }
+#  endif
 
 // extract_cpuinfo_field extracts a /proc/cpuinfo field named |field| from
 // |in|. If found, it sets |*out| to the value and returns one. Otherwise, it
@@ -477,6 +474,16 @@ static int crypto_cpuinfo_has_broken_neon(const STRING_PIECE *cpuinfo)
 
 #  endif
 # endif /* __linux__ */
+
+# ifndef OSSL_IMPLEMENT_GETAUXVAL
+static sigset_t all_masked;
+
+static sigjmp_buf ill_jmp;
+static void ill_handler(int sig)
+{
+    siglongjmp(ill_jmp, sig);
+}
+# endif
 
 void OPENSSL_cpuid_setup(void)
 {
