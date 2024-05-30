@@ -30,6 +30,9 @@ endif
 
 compiler = meson.get_compiler('c')
 
+if meson.is_subproject() and compiler.get_argument_syntax() != 'msvc'
+  add_project_arguments('-w', language: 'c')
+endif
 if compiler.get_id() == 'msvc'
   add_project_arguments('/wd4133', language: 'c')
 endif
