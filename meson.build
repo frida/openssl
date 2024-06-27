@@ -63,6 +63,7 @@ is_mips = host_machine.cpu_family() == 'mips'
 is_mips64 = host_machine.cpu_family() == 'mips64'
 is_s390x = host_machine.cpu_family() == 's390x'
 is_arm = host_machine.cpu_family() == 'arm'
+is_ppc = host_machine.cpu_family() == 'ppc'
 is_ppc64 = host_machine.cpu_family() == 'ppc64'
 is_riskv64 = host_machine.cpu_family() == 'riscv64'
 
@@ -111,6 +112,8 @@ if gas_or_nasm
       arch_subdir = 'linux-armv4'
     elif is_mips
       arch_subdir = 'linux-mips32'
+    elif is_ppc
+      arch_subdir = 'linux-ppc'
     elif is_ppc64
       arch_subdir = 'linux-ppc64le'
     elif is_x86
