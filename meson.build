@@ -42,6 +42,8 @@ dependencies = [
   dependency('threads'),
 ]
 defines = [
+  # For Frida's use-case we don't want to depend on external files.
+  'OPENSSL_NO_AUTOLOAD_CONFIG',
   # Compile out hardware engines. Most are stubs that dynamically load
   # the real driver but that poses a security liability when an attacker
   # is able to create a malicious DLL in one of the default search paths.
