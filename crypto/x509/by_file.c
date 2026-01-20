@@ -44,6 +44,37 @@ X509_LOOKUP_METHOD *X509_LOOKUP_file(void)
     return &x509_file_lookup;
 }
 
+#ifdef __ANDROID__
+#include <unistd.h>
+
+static char *termux_cafile_if_present(void)
+{
+    const char *prefix;
+    size_t prefix_len, n;
+    static const char suffix[] = "/etc/tls/cert.pem";
+    char *path;
+
+    if (ossl_safe_getenv("TERMUX_VERSION") == NULL)
+        return NULL;
+    if ((prefix = ossl_safe_getenv("PREFIX")) == NULL)
+        return NULL;
+    prefix_len = strlen(prefix);
+
+    n = prefix_len + strlen(suffix) + 1;
+    path = OPENSSL_malloc(n);
+
+    memcpy(path, prefix, prefix_len);
+    memcpy(path + prefix_len, suffix, sizeof(suffix));
+
+    if (access(path, R_OK) == 0)
+        return path;
+
+    OPENSSL_free(path);
+    return NULL;
+}
+
+#endif
+
 static int by_file_ctrl_ex(X509_LOOKUP *ctx, int cmd, const char *argp,
                            long argl, char **ret, OSSL_LIB_CTX *libctx,
                            const char *propq)
@@ -59,10 +90,21 @@ static int by_file_ctrl_ex(X509_LOOKUP *ctx, int cmd, const char *argp,
                 ok = (X509_load_cert_crl_file_ex(ctx, file, X509_FILETYPE_PEM,
                                                  libctx, propq) != 0);
 
-            else
+            else {
+#ifdef __ANDROID__
+                char *tfile = termux_cafile_if_present();
+                if (tfile != NULL) {
+                    ok = (X509_load_cert_crl_file_ex(ctx, tfile, X509_FILETYPE_PEM,
+                                                     libctx, propq) != 0);
+                    OPENSSL_free(tfile);
+                    if (ok)
+                        break;
+                }
+#endif
                 ok = (X509_load_cert_crl_file_ex(
                          ctx, X509_get_default_cert_file(),
                          X509_FILETYPE_PEM, libctx, propq) != 0);
+            }
 
             if (!ok) {
                 ERR_raise(ERR_LIB_X509, X509_R_LOADING_DEFAULTS);
