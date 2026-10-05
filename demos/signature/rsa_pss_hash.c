@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -18,8 +18,7 @@
 #include "rsa_pss.h"
 
 /* The data to be signed. This will be hashed. */
-static const char test_message[] =
-    "This is an example message to be signed.";
+static const char test_message[] = "This is an example message to be signed.";
 
 /* A property query used for selecting algorithm implementations. */
 static const char *propq = NULL;
@@ -32,7 +31,7 @@ static const char *propq = NULL;
  */
 static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
 {
-    int rv = 0;
+    int ret = 0;
     EVP_PKEY *pkey = NULL;
     EVP_MD_CTX *mctx = NULL;
     OSSL_PARAM params[2], *p = params;
@@ -43,7 +42,7 @@ static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
     /* Load DER-encoded RSA private key. */
     ppriv_key = rsa_priv_key;
     pkey = d2i_PrivateKey_ex(EVP_PKEY_RSA, NULL, &ppriv_key,
-                             sizeof(rsa_priv_key), libctx, propq);
+        sizeof(rsa_priv_key), libctx, propq);
     if (pkey == NULL) {
         fprintf(stderr, "Failed to load private key\n");
         goto end;
@@ -58,11 +57,12 @@ static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
 
     /* Initialize MD context for signing. */
     *p++ = OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_PAD_MODE,
-                                            OSSL_PKEY_RSA_PAD_MODE_PSS, 0);
+        OSSL_PKEY_RSA_PAD_MODE_PSS, 0);
     *p = OSSL_PARAM_construct_end();
 
     if (EVP_DigestSignInit_ex(mctx, NULL, "SHA256", libctx, propq,
-                              pkey, params) == 0) {
+            pkey, params)
+        == 0) {
         fprintf(stderr, "Failed to initialize signing context\n");
         goto end;
     }
@@ -95,15 +95,15 @@ static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
         goto end;
     }
 
-    rv = 1;
+    ret = 1;
 end:
     EVP_MD_CTX_free(mctx);
     EVP_PKEY_free(pkey);
 
-    if (rv == 0)
+    if (ret == 0)
         OPENSSL_free(*sig);
 
-    return rv;
+    return ret;
 }
 
 /*
@@ -113,7 +113,7 @@ end:
  */
 static int verify(OSSL_LIB_CTX *libctx, const unsigned char *sig, size_t sig_len)
 {
-    int rv = 0;
+    int ret = 0;
     EVP_PKEY *pkey = NULL;
     EVP_MD_CTX *mctx = NULL;
     OSSL_PARAM params[2], *p = params;
@@ -136,11 +136,12 @@ static int verify(OSSL_LIB_CTX *libctx, const unsigned char *sig, size_t sig_len
 
     /* Initialize MD context for verification. */
     *p++ = OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_PAD_MODE,
-                                            OSSL_PKEY_RSA_PAD_MODE_PSS, 0);
+        OSSL_PKEY_RSA_PAD_MODE_PSS, 0);
     *p = OSSL_PARAM_construct_end();
 
     if (EVP_DigestVerifyInit_ex(mctx, NULL, "SHA256", libctx, propq,
-                                pkey, params) == 0) {
+            pkey, params)
+        == 0) {
         fprintf(stderr, "Failed to initialize signing context\n");
         goto end;
     }
@@ -157,20 +158,20 @@ static int verify(OSSL_LIB_CTX *libctx, const unsigned char *sig, size_t sig_len
     /* Verify signature. */
     if (EVP_DigestVerifyFinal(mctx, sig, sig_len) == 0) {
         fprintf(stderr, "Failed to verify signature; "
-                "signature may be invalid\n");
+                        "signature may be invalid\n");
         goto end;
     }
 
-    rv = 1;
+    ret = 1;
 end:
     EVP_MD_CTX_free(mctx);
     EVP_PKEY_free(pkey);
-    return rv;
+    return ret;
 }
 
 int main(int argc, char **argv)
 {
-    int rv = 1;
+    int ret = EXIT_FAILURE;
     OSSL_LIB_CTX *libctx = NULL;
     unsigned char *sig = NULL;
     size_t sig_len = 0;
@@ -181,9 +182,11 @@ int main(int argc, char **argv)
     if (verify(libctx, sig, sig_len) == 0)
         goto end;
 
-    rv = 0;
+    printf("Success\n");
+
+    ret = EXIT_SUCCESS;
 end:
     OPENSSL_free(sig);
     OSSL_LIB_CTX_free(libctx);
-    return rv;
+    return ret;
 }

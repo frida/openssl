@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2016-2023 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2016-2026 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -93,6 +93,13 @@ if (!$avx && $win64 && ($flavour =~ /masm/ || $ENV{ASM} =~ /ml64/) &&
 
 if (!$avx && `$ENV{CC} -v 2>&1` =~ /((?:clang|LLVM) version|.*based on LLVM) ([0-9]+\.[0-9]+)/) {
 	$avx = ($2>=3.0) + ($2>3.0);
+}
+
+if (!$avx && `$ENV{CC} -x c /dev/null -dM -E|grep __clang_major__`
+	=~ /#define __clang_major__.([0-9]+)/) {
+	if ($1) {
+		$avx = ($1>=11); #icx started with clang 11
+	}
 }
 
 open OUT,"| \"$^X\" \"$xlate\" $flavour \"$output\""
@@ -229,6 +236,7 @@ $code.=<<___;
 .align	32
 poly1305_blocks:
 .cfi_startproc
+	endbranch
 .Lblocks:
 	shr	\$4,$len
 	jz	.Lno_data		# too short
@@ -303,6 +311,7 @@ $code.=<<___;
 .align	32
 poly1305_emit:
 .cfi_startproc
+	endbranch
 .Lemit:
 	mov	0($ctx),%r8	# load hash value
 	mov	8($ctx),%r9
@@ -524,6 +533,7 @@ __poly1305_init_avx:
 .align	32
 poly1305_blocks_avx:
 .cfi_startproc
+	endbranch
 	mov	20($ctx),%r8d		# is_base2_26
 	cmp	\$128,$len
 	jae	.Lblocks_avx
@@ -1384,6 +1394,7 @@ $code.=<<___;
 .align	32
 poly1305_emit_avx:
 .cfi_startproc
+	endbranch
 	cmpl	\$0,20($ctx)	# is_base2_26?
 	je	.Lemit
 
@@ -1448,6 +1459,7 @@ $code.=<<___;
 .align	32
 poly1305_blocks_avx2:
 .cfi_startproc
+	endbranch
 	mov	20($ctx),%r8d		# is_base2_26
 	cmp	\$128,$len
 	jae	.Lblocks_avx2
@@ -2144,6 +2156,7 @@ $code.=<<___;
 .align	32
 poly1305_blocks_avx512:
 .cfi_startproc
+	endbranch
 .Lblocks_avx512:
 	mov		\$15,%eax
 	kmovw		%eax,%k2
@@ -3778,6 +3791,7 @@ poly1305_emit_base2_44:
 ___
 }	}	}
 $code.=<<___;
+.section .rodata align=64
 .align	64
 .Lconst:
 .Lmask24:
@@ -3809,6 +3823,7 @@ $code.=<<___;
 .Lx_mask42:
 .quad	0x3ffffffffff,0x3ffffffffff,0x3ffffffffff,0x3ffffffffff
 .quad	0x3ffffffffff,0x3ffffffffff,0x3ffffffffff,0x3ffffffffff
+.previous
 ___
 }
 $code.=<<___;

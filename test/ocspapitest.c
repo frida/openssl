@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2017-2026 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -11,12 +11,14 @@
 
 #include <openssl/opensslconf.h>
 #include <openssl/crypto.h>
+#include <openssl/err.h>
 #include <openssl/ocsp.h>
 #include <openssl/x509.h>
 #include <openssl/asn1.h>
 #include <openssl/pem.h>
 
 #include "testutil.h"
+#include "internal/nelem.h"
 
 static const char *certstr;
 static const char *privkeystr;
@@ -41,7 +43,7 @@ static int get_cert_and_key(X509 **cert_out, EVP_PKEY **key_out)
     *cert_out = cert;
     *key_out = key;
     return 1;
- end:
+end:
     X509_free(cert);
     EVP_PKEY_free(key);
     return 0;
@@ -60,7 +62,7 @@ static int get_cert(X509 **cert_out)
         goto end;
     *cert_out = cert;
     return 1;
- end:
+end:
     X509_free(cert);
     return 0;
 }
@@ -68,7 +70,7 @@ static int get_cert(X509 **cert_out)
 static OCSP_BASICRESP *make_dummy_resp(void)
 {
     const unsigned char namestr[] = "openssl.example.com";
-    unsigned char keybytes[128] = {7};
+    unsigned char keybytes[128] = { 7 };
     OCSP_BASICRESP *bs = OCSP_BASICRESP_new();
     OCSP_BASICRESP *bs_out = NULL;
     OCSP_CERTID *cid = NULL;
@@ -82,8 +84,8 @@ static OCSP_BASICRESP *make_dummy_resp(void)
         || !TEST_ptr(key)
         || !TEST_ptr(serial)
         || !TEST_true(X509_NAME_add_entry_by_NID(name, NID_commonName,
-                                                 MBSTRING_ASC,
-                                                 namestr, -1, -1, 1))
+            MBSTRING_ASC,
+            namestr, -1, -1, 1))
         || !TEST_true(ASN1_BIT_STRING_set(key, keybytes, sizeof(keybytes)))
         || !TEST_true(ASN1_INTEGER_set_uint64(serial, (uint64_t)1)))
         goto err;
@@ -93,12 +95,12 @@ static OCSP_BASICRESP *make_dummy_resp(void)
         || !TEST_ptr(nextupd)
         || !TEST_ptr(cid)
         || !TEST_true(OCSP_basic_add1_status(bs, cid,
-                                             V_OCSP_CERTSTATUS_UNKNOWN,
-                                             0, NULL, thisupd, nextupd)))
+            V_OCSP_CERTSTATUS_UNKNOWN,
+            0, NULL, thisupd, nextupd)))
         goto err;
     bs_out = bs;
     bs = NULL;
- err:
+err:
     ASN1_TIME_free(thisupd);
     ASN1_TIME_free(nextupd);
     ASN1_BIT_STRING_free(key);
@@ -128,7 +130,7 @@ static int test_resp_signer(void)
         || !TEST_true(get_cert_and_key(&signer, &key))
         || !TEST_true(sk_X509_push(extra_certs, signer))
         || !TEST_true(OCSP_basic_sign(bs, signer, key, EVP_sha1(),
-                                      NULL, OCSP_NOCERTS)))
+            NULL, OCSP_NOCERTS)))
         goto err;
     if (!TEST_true(OCSP_resp_get0_signer(bs, &tmp, extra_certs))
         || !TEST_int_eq(X509_cmp(tmp, signer), 0))
@@ -140,13 +142,13 @@ static int test_resp_signer(void)
     tmp = NULL;
     if (!TEST_ptr(bs)
         || !TEST_true(OCSP_basic_sign(bs, signer, key, EVP_sha1(),
-                                      NULL, 0)))
+            NULL, 0)))
         goto err;
     if (!TEST_true(OCSP_resp_get0_signer(bs, &tmp, NULL))
         || !TEST_int_eq(X509_cmp(tmp, signer), 0))
         goto err;
     ret = 1;
- err:
+err:
     OCSP_BASICRESP_free(bs);
     sk_X509_free(extra_certs);
     X509_free(signer);
@@ -163,15 +165,15 @@ static int test_access_description(int testcase)
         goto err;
 
     switch (testcase) {
-    case 0:     /* no change */
+    case 0: /* no change */
         break;
-    case 1:     /* check and release current location */
+    case 1: /* check and release current location */
         if (!TEST_ptr(ad->location))
             goto err;
         GENERAL_NAME_free(ad->location);
         ad->location = NULL;
         break;
-    case 2:     /* replace current location */
+    case 2: /* replace current location */
         GENERAL_NAME_free(ad->location);
         ad->location = GENERAL_NAME_new();
         if (!TEST_ptr(ad->location))
@@ -193,7 +195,7 @@ static int test_ocsp_url_svcloc_new(void)
     };
 
     X509 *issuer = NULL;
-    X509_EXTENSION * ext = NULL;
+    X509_EXTENSION *ext = NULL;
     int ret = 0;
 
     if (!TEST_true(get_cert(&issuer)))
@@ -210,6 +212,57 @@ static int test_ocsp_url_svcloc_new(void)
     ret = 1;
 err:
     X509_free(issuer);
+    return ret;
+}
+
+static const struct {
+    const char *thisupd;
+    const char *nextupd;
+    long maxsec;
+    int reason;
+} invalid_update_tests[] = {
+    { "99991231235959+0100", NULL, 60,
+        OCSP_R_ERROR_IN_THISUPDATE_FIELD },
+    { "20000101000000Z", "20000102000000.5Z", -1,
+        OCSP_R_ERROR_IN_NEXTUPDATE_FIELD },
+    /* Canonical forms must keep their existing, specific reasons */
+    { "20000101000000Z", NULL, 60, OCSP_R_STATUS_TOO_OLD },
+    { "20000101000000Z", "20000102000000Z", -1,
+        OCSP_R_STATUS_EXPIRED },
+};
+
+static int test_invalid_update_time(int idx)
+{
+    ASN1_GENERALIZEDTIME *thisupd = NULL, *nextupd = NULL;
+    unsigned long errcode;
+    int ret = 0;
+
+    if (!TEST_ptr(thisupd = ASN1_GENERALIZEDTIME_new())
+        || !TEST_true(ASN1_GENERALIZEDTIME_set_string(
+            thisupd, invalid_update_tests[idx].thisupd)))
+        goto err;
+    if (invalid_update_tests[idx].nextupd != NULL
+        && (!TEST_ptr(nextupd = ASN1_GENERALIZEDTIME_new())
+            || !TEST_true(ASN1_GENERALIZEDTIME_set_string(
+                nextupd, invalid_update_tests[idx].nextupd))))
+        goto err;
+
+    ERR_clear_error();
+    if (!TEST_false(OCSP_check_validity(
+            thisupd, nextupd, 0, invalid_update_tests[idx].maxsec)))
+        goto err;
+    errcode = ERR_get_error();
+    if (!TEST_int_eq(ERR_GET_LIB(errcode), ERR_LIB_OCSP)
+        || !TEST_int_eq(ERR_GET_REASON(errcode),
+            invalid_update_tests[idx].reason)
+        || !TEST_ulong_eq(ERR_peek_error(), 0))
+        goto err;
+    ret = 1;
+
+err:
+    ERR_clear_error();
+    ASN1_GENERALIZEDTIME_free(thisupd);
+    ASN1_GENERALIZEDTIME_free(nextupd);
     return ret;
 }
 
@@ -231,6 +284,8 @@ int setup_tests(void)
     ADD_TEST(test_resp_signer);
     ADD_ALL_TESTS(test_access_description, 3);
     ADD_TEST(test_ocsp_url_svcloc_new);
+    ADD_ALL_TESTS(test_invalid_update_time,
+        OSSL_NELEM(invalid_update_tests));
 #endif
     return 1;
 }

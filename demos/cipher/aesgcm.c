@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2012-2024 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -64,10 +64,10 @@ static const unsigned char gcm_tag[] = {
  * algorithm implementations. If they are NULL then the default library
  * context and properties are used.
  */
-OSSL_LIB_CTX *libctx = NULL;
-const char *propq = NULL;
+static OSSL_LIB_CTX *libctx = NULL;
+static const char *propq = NULL;
 
-int aes_gcm_encrypt(void)
+static int aes_gcm_encrypt(void)
 {
     int ret = 0;
     EVP_CIPHER_CTX *ctx;
@@ -94,14 +94,14 @@ int aes_gcm_encrypt(void)
 
     /* Set IV length if default 96 bits is not appropriate */
     params[0] = OSSL_PARAM_construct_size_t(OSSL_CIPHER_PARAM_AEAD_IVLEN,
-                                            &gcm_ivlen);
+        &gcm_ivlen);
 
     /*
      * Initialise an encrypt operation with the cipher/mode, key, IV and
      * IV length parameter.
      * For demonstration purposes the IV is being set here. In a compliant
      * application the IV would be generated internally so the iv passed in
-     * would be NULL. 
+     * would be NULL.
      */
     if (!EVP_EncryptInit_ex2(ctx, cipher, gcm_key, gcm_iv, params))
         goto err;
@@ -124,7 +124,7 @@ int aes_gcm_encrypt(void)
 
     /* Get tag */
     params[0] = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_AEAD_TAG,
-                                                  outtag, 16);
+        outtag, 16);
 
     if (!EVP_CIPHER_CTX_get_params(ctx, params))
         goto err;
@@ -144,7 +144,7 @@ err:
     return ret;
 }
 
-int aes_gcm_decrypt(void)
+static int aes_gcm_decrypt(void)
 {
     int ret = 0;
     EVP_CIPHER_CTX *ctx;
@@ -169,7 +169,7 @@ int aes_gcm_decrypt(void)
 
     /* Set IV length if default 96 bits is not appropriate */
     params[0] = OSSL_PARAM_construct_size_t(OSSL_CIPHER_PARAM_AEAD_IVLEN,
-                                            &gcm_ivlen);
+        &gcm_ivlen);
 
     /*
      * Initialise an encrypt operation with the cipher/mode, key, IV and
@@ -192,7 +192,7 @@ int aes_gcm_decrypt(void)
 
     /* Set expected tag value. */
     params[0] = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_AEAD_TAG,
-                                                  (void*)gcm_tag, sizeof(gcm_tag));
+        (void *)gcm_tag, sizeof(gcm_tag));
 
     if (!EVP_CIPHER_CTX_set_params(ctx, params))
         goto err;
@@ -219,10 +219,10 @@ err:
 int main(int argc, char **argv)
 {
     if (!aes_gcm_encrypt())
-        return 1;
+        return EXIT_FAILURE;
 
     if (!aes_gcm_decrypt())
-        return 1;
+        return EXIT_FAILURE;
 
-    return 0;
+    return EXIT_SUCCESS;
 }

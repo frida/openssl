@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -43,7 +43,7 @@ static unsigned char hkdf_okm[] = {
 
 int main(int argc, char **argv)
 {
-    int rv = 1;
+    int ret = EXIT_FAILURE;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
     unsigned char out[42];
@@ -72,16 +72,16 @@ int main(int argc, char **argv)
 
     /* Set the underlying hash function used to derive the key */
     *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST,
-                                            "SHA256", 0);
+        "SHA256", 0);
     /* Set input keying material */
     *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_KEY, hkdf_ikm,
-                                             sizeof(hkdf_ikm));
+        sizeof(hkdf_ikm));
     /* Set application specific information */
     *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_INFO, hkdf_info,
-                                             sizeof(hkdf_info));
+        sizeof(hkdf_info));
     /* Set salt */
     *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SALT, hkdf_salt,
-                                             sizeof(hkdf_salt));
+        sizeof(hkdf_salt));
     *p = OSSL_PARAM_construct_end();
 
     /* Derive the key */
@@ -95,10 +95,12 @@ int main(int argc, char **argv)
         goto end;
     }
 
-    rv = 0;
+    printf("Success\n");
+
+    ret = EXIT_SUCCESS;
 end:
     EVP_KDF_CTX_free(kctx);
     EVP_KDF_free(kdf);
     OSSL_LIB_CTX_free(library_context);
-    return rv;
+    return ret;
 }

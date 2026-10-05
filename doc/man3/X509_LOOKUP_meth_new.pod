@@ -110,6 +110,7 @@ be given a human-readable string containing a brief description of the lookup
 method.
 
 X509_LOOKUP_meth_free() destroys a B<X509_LOOKUP_METHOD> structure.
+If the argument is NULL, nothing is done.
 
 X509_LOOKUP_get_new_item() and X509_LOOKUP_set_new_item() get and set the
 function that is called when an B<X509_LOOKUP> object is created with
@@ -149,7 +150,7 @@ object.
 
 Implementations must add objects they find to the B<X509_STORE> object
 using X509_STORE_add_cert() or X509_STORE_add_crl().  This increments
-its reference count.  However, the X509_STORE_CTX_get_by_subject()
+its reference count.  However, the L<X509_STORE_CTX_get_by_subject(3)>
 function also increases the reference count which leads to one too
 many references being held.  Therefore, applications should
 additionally call X509_free() or X509_CRL_free() to decrement the
@@ -178,6 +179,7 @@ pointers.
 
 =head1 SEE ALSO
 
+L<X509_STORE_CTX_get_by_subject(3)>,
 L<X509_STORE_new(3)>, L<SSL_CTX_set_cert_store(3)>
 
 =head1 HISTORY
@@ -186,7 +188,7 @@ The functions described here were added in OpenSSL 1.1.0i.
 
 =head1 COPYRIGHT
 
-Copyright 2018-2020 The OpenSSL Project Authors. All Rights Reserved.
+Copyright 2018-2024 The OpenSSL Project Authors. All Rights Reserved.
 
 Licensed under the Apache License 2.0 (the "License").  You may not use
 this file except in compliance with the License.  You can obtain a copy

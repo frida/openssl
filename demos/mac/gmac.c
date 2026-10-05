@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -57,7 +57,7 @@ static char *propq = NULL;
 
 int main(int argc, char **argv)
 {
-    int rv = EXIT_FAILURE;
+    int ret = EXIT_FAILURE;
     EVP_MAC *mac = NULL;
     EVP_MAC_CTX *mctx = NULL;
     unsigned char out[16];
@@ -85,9 +85,9 @@ int main(int argc, char **argv)
         goto end;
     }
 
-    /* GMAC requries a GCM mode cipher to be specified */
+    /* GMAC requires a GCM mode cipher to be specified */
     *p++ = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
-                                            "AES-128-GCM", 0);
+        "AES-128-GCM", 0);
 
     /*
      * If a non-default property query is required when fetching the GCM mode
@@ -95,11 +95,11 @@ int main(int argc, char **argv)
      */
     if (propq != NULL)
         *p++ = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_PROPERTIES,
-                                                propq, 0);
+            propq, 0);
 
     /* Set the initialisation vector (IV) */
     *p++ = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_IV,
-                                             iv, sizeof(iv));
+        iv, sizeof(iv));
     *p = OSSL_PARAM_construct_end();
 
     /* Initialise the GMAC operation */
@@ -134,12 +134,12 @@ int main(int argc, char **argv)
         goto end;
     }
 
-    rv = EXIT_SUCCESS;
+    ret = EXIT_SUCCESS;
 end:
     EVP_MAC_CTX_free(mctx);
     EVP_MAC_free(mac);
     OSSL_LIB_CTX_free(library_context);
-    if (rv != EXIT_SUCCESS)
+    if (ret != EXIT_SUCCESS)
         ERR_print_errors_fp(stderr);
-    return rv;
+    return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -17,15 +17,15 @@
 #include "testutil.h"
 
 static int dummy_decoder_decode(void *ctx, OSSL_CORE_BIO *cin, int selection,
-                                OSSL_CALLBACK *object_cb, void *object_cbarg,
-                                OSSL_PASSPHRASE_CALLBACK *pw_cb, void *pw_cbarg)
+    OSSL_CALLBACK *object_cb, void *object_cbarg,
+    OSSL_PASSPHRASE_CALLBACK *pw_cb, void *pw_cbarg)
 {
     return 0;
 }
 
 static const OSSL_DISPATCH dummy_decoder_functions[] = {
     { OSSL_FUNC_DECODER_DECODE, (void (*)(void))dummy_decoder_decode },
-    { 0, NULL }
+    OSSL_DISPATCH_END
 };
 
 static const OSSL_ALGORITHM dummy_decoders[] = {
@@ -34,16 +34,16 @@ static const OSSL_ALGORITHM dummy_decoders[] = {
 };
 
 static int dummy_encoder_encode(void *ctx, OSSL_CORE_BIO *out,
-                                const void *obj_raw,
-                                const OSSL_PARAM obj_abstract[], int selection,
-                                OSSL_PASSPHRASE_CALLBACK *cb, void *cbarg)
+    const void *obj_raw,
+    const OSSL_PARAM obj_abstract[], int selection,
+    OSSL_PASSPHRASE_CALLBACK *cb, void *cbarg)
 {
     return 0;
 }
 
 static const OSSL_DISPATCH dummy_encoder_functions[] = {
     { OSSL_FUNC_DECODER_DECODE, (void (*)(void))dummy_encoder_encode },
-    { 0, NULL }
+    OSSL_DISPATCH_END
 };
 
 static const OSSL_ALGORITHM dummy_encoders[] = {
@@ -56,9 +56,9 @@ static void *dummy_store_open(void *provctx, const char *uri)
     return NULL;
 }
 
-static int dummy_store_load(void *loaderctx,  OSSL_CALLBACK *object_cb,
-                            void *object_cbarg, OSSL_PASSPHRASE_CALLBACK *pw_cb,
-                            void *pw_cbarg)
+static int dummy_store_load(void *loaderctx, OSSL_CALLBACK *object_cb,
+    void *object_cbarg, OSSL_PASSPHRASE_CALLBACK *pw_cb,
+    void *pw_cbarg)
 {
     return 0;
 }
@@ -78,7 +78,7 @@ static const OSSL_DISPATCH dummy_store_functions[] = {
     { OSSL_FUNC_STORE_LOAD, (void (*)(void))dummy_store_load },
     { OSSL_FUNC_STORE_EOF, (void (*)(void))dumm_store_eof },
     { OSSL_FUNC_STORE_CLOSE, (void (*)(void))dummy_store_close },
-    { 0, NULL }
+    OSSL_DISPATCH_END
 };
 
 static const OSSL_ALGORITHM dummy_store[] = {
@@ -87,7 +87,7 @@ static const OSSL_ALGORITHM dummy_store[] = {
 };
 
 static void *dummy_rand_newctx(void *provctx, void *parent,
-                               const OSSL_DISPATCH *parent_calls)
+    const OSSL_DISPATCH *parent_calls)
 {
     return provctx;
 }
@@ -97,9 +97,9 @@ static void dummy_rand_freectx(void *vctx)
 }
 
 static int dummy_rand_instantiate(void *vdrbg, unsigned int strength,
-                                  int prediction_resistance,
-                                  const unsigned char *pstr, size_t pstr_len,
-                                  const OSSL_PARAM params[])
+    int prediction_resistance,
+    const unsigned char *pstr, size_t pstr_len,
+    const OSSL_PARAM params[])
 {
     return 1;
 }
@@ -110,12 +110,12 @@ static int dummy_rand_uninstantiate(void *vdrbg)
 }
 
 static int dummy_rand_generate(void *vctx, unsigned char *out, size_t outlen,
-                               unsigned int strength, int prediction_resistance,
-                               const unsigned char *addin, size_t addin_len)
+    unsigned int strength, int prediction_resistance,
+    const unsigned char *addin, size_t addin_len)
 {
     size_t i;
 
-    for (i = 0; i <outlen; i++)
+    for (i = 0; i < outlen; i++)
         out[i] = (unsigned char)(i & 0xff);
 
     return 1;
@@ -162,12 +162,12 @@ static const OSSL_DISPATCH dummy_rand_functions[] = {
     { OSSL_FUNC_RAND_UNINSTANTIATE, (void (*)(void))dummy_rand_uninstantiate },
     { OSSL_FUNC_RAND_GENERATE, (void (*)(void))dummy_rand_generate },
     { OSSL_FUNC_RAND_GETTABLE_CTX_PARAMS,
-      (void(*)(void))dummy_rand_gettable_ctx_params },
-    { OSSL_FUNC_RAND_GET_CTX_PARAMS, (void(*)(void))dummy_rand_get_ctx_params },
-    { OSSL_FUNC_RAND_ENABLE_LOCKING, (void(*)(void))dummy_rand_enable_locking },
-    { OSSL_FUNC_RAND_LOCK, (void(*)(void))dummy_rand_lock },
-    { OSSL_FUNC_RAND_UNLOCK, (void(*)(void))dummy_rand_unlock },
-    { 0, NULL }
+        (void (*)(void))dummy_rand_gettable_ctx_params },
+    { OSSL_FUNC_RAND_GET_CTX_PARAMS, (void (*)(void))dummy_rand_get_ctx_params },
+    { OSSL_FUNC_RAND_ENABLE_LOCKING, (void (*)(void))dummy_rand_enable_locking },
+    { OSSL_FUNC_RAND_LOCK, (void (*)(void))dummy_rand_lock },
+    { OSSL_FUNC_RAND_UNLOCK, (void (*)(void))dummy_rand_unlock },
+    OSSL_DISPATCH_END
 };
 
 static const OSSL_ALGORITHM dummy_rand[] = {
@@ -176,7 +176,7 @@ static const OSSL_ALGORITHM dummy_rand[] = {
 };
 
 static const OSSL_ALGORITHM *dummy_query(void *provctx, int operation_id,
-                                         int *no_cache)
+    int *no_cache)
 {
     *no_cache = 0;
     switch (operation_id) {
@@ -195,13 +195,13 @@ static const OSSL_ALGORITHM *dummy_query(void *provctx, int operation_id,
 static const OSSL_DISPATCH dummy_dispatch_table[] = {
     { OSSL_FUNC_PROVIDER_QUERY_OPERATION, (void (*)(void))dummy_query },
     { OSSL_FUNC_PROVIDER_TEARDOWN, (void (*)(void))OSSL_LIB_CTX_free },
-    { 0, NULL }
+    OSSL_DISPATCH_END
 };
 
 static int dummy_provider_init(const OSSL_CORE_HANDLE *handle,
-                               const OSSL_DISPATCH *in,
-                               const OSSL_DISPATCH **out,
-                               void **provctx)
+    const OSSL_DISPATCH *in,
+    const OSSL_DISPATCH **out,
+    void **provctx)
 {
     OSSL_LIB_CTX *libctx = OSSL_LIB_CTX_new_child(handle, in);
     unsigned char buf[32];
@@ -243,35 +243,35 @@ static int fetch_test(int tst)
         goto err;
 
     if (!TEST_true(OSSL_PROVIDER_add_builtin(libctx, "dummy-prov",
-                                             dummy_provider_init))
-            || !TEST_ptr(nullprov = OSSL_PROVIDER_load(libctx, "default"))
-            || !TEST_ptr(dummyprov = OSSL_PROVIDER_load(libctx, "dummy-prov")))
+            dummy_provider_init))
+        || !TEST_ptr(nullprov = OSSL_PROVIDER_load(libctx, "default"))
+        || !TEST_ptr(dummyprov = OSSL_PROVIDER_load(libctx, "dummy-prov")))
         goto err;
 
     switch (tst % 4) {
     case 0:
         decoder = OSSL_DECODER_fetch(libctx, "DUMMY",
-                                     query ? "provider=dummy" : NULL);
+            query ? "provider=dummy" : NULL);
         if (!TEST_ptr(decoder))
             goto err;
         break;
     case 1:
         encoder = OSSL_ENCODER_fetch(libctx, "DUMMY",
-                                     query ? "provider=dummy" : NULL);
+            query ? "provider=dummy" : NULL);
         if (!TEST_ptr(encoder))
             goto err;
         break;
     case 2:
         loader = OSSL_STORE_LOADER_fetch(libctx, "DUMMY",
-                                         query ? "provider=dummy" : NULL);
+            query ? "provider=dummy" : NULL);
         if (!TEST_ptr(loader))
             goto err;
         break;
     case 3:
         if (!TEST_true(RAND_set_DRBG_type(libctx, "DUMMY",
-                                          query ? "provider=dummy" : NULL,
-                                          NULL, NULL))
-                || !TEST_int_ge(RAND_bytes_ex(libctx, buf, sizeof(buf), 0), 1))
+                query ? "provider=dummy" : NULL,
+                NULL, NULL))
+            || !TEST_int_ge(RAND_bytes_ex(libctx, buf, sizeof(buf), 0), 1))
             goto err;
         break;
     default:
@@ -279,7 +279,7 @@ static int fetch_test(int tst)
     }
 
     testresult = 1;
- err:
+err:
     OSSL_DECODER_free(decoder);
     OSSL_ENCODER_free(encoder);
     OSSL_STORE_LOADER_free(loader);

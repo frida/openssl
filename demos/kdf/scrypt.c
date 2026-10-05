@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -59,7 +59,7 @@ static const unsigned char expected_output[] = {
 
 int main(int argc, char **argv)
 {
-    int rv = 1;
+    int ret = EXIT_FAILURE;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
     unsigned char out[64];
@@ -88,10 +88,10 @@ int main(int argc, char **argv)
 
     /* Set password */
     *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_PASSWORD, password,
-                                             sizeof(password));
+        sizeof(password));
     /* Set salt */
     *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SALT, scrypt_salt,
-                                             sizeof(scrypt_salt));
+        sizeof(scrypt_salt));
     /* Set N (default 1048576) */
     *p++ = OSSL_PARAM_construct_uint(OSSL_KDF_PARAM_SCRYPT_N, &scrypt_n);
     /* Set R (default 8) */
@@ -111,10 +111,12 @@ int main(int argc, char **argv)
         goto end;
     }
 
-    rv = 0;
+    printf("Success\n");
+
+    ret = EXIT_SUCCESS;
 end:
     EVP_KDF_CTX_free(kctx);
     EVP_KDF_free(kdf);
     OSSL_LIB_CTX_free(library_context);
-    return rv;
+    return ret;
 }

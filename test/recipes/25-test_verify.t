@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2015-2023 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2015-2026 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -10,6 +10,7 @@
 use strict;
 use warnings;
 
+use Cwd qw(abs_path);
 use File::Spec::Functions qw/canonpath/;
 use File::Copy;
 use OpenSSL::Test qw/:DEFAULT srctop_file bldtop_dir ok_nofips with/;
@@ -17,19 +18,19 @@ use OpenSSL::Test::Utils;
 
 setup("test_verify");
 
+my @certspath = qw(test certs);
 sub verify {
     my ($cert, $purpose, $trusted, $untrusted, @opts) = @_;
-    my @path = qw(test certs);
     my @args = qw(openssl verify -auth_level 1);
     push(@args, "-purpose", $purpose) if $purpose ne "";
     push(@args, @opts);
-    for (@$trusted) { push(@args, "-trusted", srctop_file(@path, "$_.pem")) }
-    for (@$untrusted) { push(@args, "-untrusted", srctop_file(@path, "$_.pem")) }
-    push(@args, srctop_file(@path, "$cert.pem"));
+    for (@$trusted) { push(@args, "-trusted", srctop_file(@certspath, "$_.pem")) }
+    for (@$untrusted) { push(@args, "-untrusted", srctop_file(@certspath, "$_.pem")) }
+    push(@args, srctop_file(@certspath, "$cert.pem"));
     run(app([@args]));
 }
 
-plan tests => 166;
+plan tests => 206;
 
 # Canonical success
 ok(verify("ee-cert", "sslserver", ["root-cert"], ["ca-cert"]),
@@ -61,7 +62,7 @@ ok(verify("ee-cert-ocsp-nocheck", "", ["root-cert"], ["ca-cert"]),
 ok(verify("ee-cert", "sslserver", [qw(sroot-cert)], [qw(ca-cert)]),
    "accept server purpose");
 ok(!verify("ee-cert", "sslserver", [qw(croot-cert)], [qw(ca-cert)]),
-   "fail client purpose");
+   "fail client purpose"); # beware, questionable non-standard EKU check on trust anchor
 ok(verify("ee-cert", "sslserver", [qw(root+serverAuth)], [qw(ca-cert)]),
    "accept server trust");
 ok(verify("ee-cert", "sslserver", [qw(sroot+serverAuth)], [qw(ca-cert)]),
@@ -81,7 +82,7 @@ ok(verify("ee-cert", "sslserver", [qw(root-clientAuth)], [qw(ca-cert)]),
 ok(verify("ee-cert", "sslserver", [qw(sroot-clientAuth)], [qw(ca-cert)]),
    "accept client mistrust with server purpose");
 ok(!verify("ee-cert", "sslserver", [qw(croot-clientAuth)], [qw(ca-cert)]),
-   "fail client mistrust with client purpose");
+   "fail client mistrust with client purpose"); # beware, questionable non-standard EKU check on trust anchor
 # Inapplicable trust
 ok(!verify("ee-cert", "sslserver", [qw(root+clientAuth)], [qw(ca-cert)]),
    "fail client trust");
@@ -150,7 +151,7 @@ ok(!verify("ee-cert", "sslserver", [qw(root-expired)], [qw(ca-cert)]),
 ok(verify("ee-cert", "sslserver", [qw(sca-cert)], [], "-partial_chain"),
    "accept partial chain with server purpose");
 ok(!verify("ee-cert", "sslserver", [qw(cca-cert)], [], "-partial_chain"),
-   "fail partial chain with client purpose");
+   "fail partial chain with client purpose"); # beware, questionable non-standard EKU check on trust anchor
 ok(verify("ee-cert", "sslserver", [qw(ca+serverAuth)], [], "-partial_chain"),
    "accept server trust partial chain");
 ok(verify("ee-cert", "sslserver", [qw(cca+serverAuth)], [], "-partial_chain"),
@@ -188,7 +189,7 @@ ok(verify("ee-cert", "sslserver", [qw(root-cert cca+serverAuth)], [qw(ca-cert)])
 ok(verify("ee-cert", "sslserver", [qw(root-cert cca+anyEKU)], [qw(ca-cert)]),
    "accept wildcard trust and client purpose");
 ok(!verify("ee-cert", "sslserver", [qw(root-cert cca-cert)], [qw(ca-cert)]),
-   "fail client purpose");
+   "fail client purpose intermediate trusted"); # beware, questionable non-standard EKU check on trust anchor
 ok(!verify("ee-cert", "sslserver", [qw(root-cert ca-anyEKU)], [qw(ca-cert)]),
    "fail wildcard mistrust");
 ok(!verify("ee-cert", "sslserver", [qw(root-cert ca-serverAuth)], [qw(ca-cert)]),
@@ -241,6 +242,48 @@ ok(verify("ee-pathlen", "sslserver", [qw(root-cert)], [qw(ca-cert)]),
    "accept non-ca with pathlen:0 by default");
 ok(!verify("ee-pathlen", "sslserver", [qw(root-cert)], [qw(ca-cert)], "-x509_strict"),
    "reject non-ca with pathlen:0 with strict flag");
+
+# EE veaiants wrt timestamp signing
+ok(verify("ee-timestampsign-CABforum", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "accept timestampsign according to CAB forum");
+ok(!verify("ee-timestampsign-CABforum-noncritxku", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to CAB forum with extendedKeyUsage not critical");
+ok(!verify("ee-timestampsign-CABforum-serverauth", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to CAB forum with serverAuth");
+ok(!verify("ee-timestampsign-CABforum-anyextkeyusage", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to CAB forum with anyExtendedKeyUsage");
+ok(!verify("ee-timestampsign-CABforum-crlsign", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to CAB forum with cRLSign");
+ok(!verify("ee-timestampsign-CABforum-keycertsign", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to CAB forum with keyCertSign");
+ok(verify("ee-timestampsign-rfc3161", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "accept timestampsign according to RFC 3161");
+ok(!verify("ee-timestampsign-rfc3161-noncritxku", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to RFC 3161 with extendedKeyUsage not critical");
+ok(verify("ee-timestampsign-rfc3161-digsig", "timestampsign", [qw(root-cert)], [qw(ca-cert)]),
+   "accept timestampsign according to RFC 3161 with digitalSignature");
+
+# EE variants wrt code signing
+ok(verify("ee-codesign", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "accept codesign");
+ok(!verify("ee-codesign-serverauth", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail codesign with additional serverAuth");
+ok(!verify("ee-codesign-anyextkeyusage", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail codesign with additional anyExtendedKeyUsage");
+ok(!verify("ee-codesign-crlsign", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail codesign with additional cRLSign");
+ok(!verify("ee-codesign-keycertsign", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail codesign with additional keyCertSign");
+ok(!verify("ee-codesign-noncritical", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail codesign without critical KU");
+ok(!verify("ee-cert", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail sslserver as code sign");
+ok(!verify("ee-client", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail sslclient as codesign");
+ok(!verify("ee-timestampsign-CABforum", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to CAB forum as codesign");
+ok(!verify("ee-timestampsign-rfc3161", "codesign", [qw(root-cert)], [qw(ca-cert)]),
+   "fail timestampsign according to RFC 3161 as codesign");
 
 # Proxy certificates
 ok(!verify("pc1-cert", "sslclient", [qw(root-cert)], [qw(ee-client ca-cert)]),
@@ -297,7 +340,7 @@ ok(!verify("ee-cert-md5", "", ["root-cert"], ["ca-cert"]),
 
 # Explicit vs named curve tests
 SKIP: {
-    skip "EC is not supported by this OpenSSL build", 3
+    skip "EC is not supported by this OpenSSL build", 7
         if disabled("ec");
     ok(!verify("ee-cert-ec-explicit", "", ["root-cert"],
                ["ca-cert-ec-named"]),
@@ -308,6 +351,14 @@ SKIP: {
     ok(verify("ee-cert-ec-named-named", "", ["root-cert"],
               ["ca-cert-ec-named"]),
         "accept named curve leaf with named curve intermediate");
+    ok(verify("ee-cert-ec-sha3-224", "", ["root-cert"], ["ca-cert-ec-named"], ),
+        "accept cert generated with EC and SHA3-224");
+    ok(verify("ee-cert-ec-sha3-256", "", ["root-cert"], ["ca-cert-ec-named"], ),
+        "accept cert generated with EC and SHA3-256");
+    ok(verify("ee-cert-ec-sha3-384", "", ["root-cert"], ["ca-cert-ec-named"], ),
+        "accept cert generated with EC and SHA3-384");
+    ok(verify("ee-cert-ec-sha3-512", "", ["root-cert"], ["ca-cert-ec-named"], ),
+        "accept cert generated with EC and SHA3-512");
 }
 # Same as above but with base provider used for decoding
 SKIP: {
@@ -316,8 +367,21 @@ SKIP: {
     my $provpath = bldtop_dir("providers");
     my @prov = ("-provider-path", $provpath);
 
-    skip "EC is not supported or FIPS is disabled", 3
+    skip "EC is not supported or FIPS is disabled", 7
         if disabled("ec") || $no_fips;
+
+    $ENV{OPENSSL_CONF} = $provconf;
+
+    ok(verify("ee-cert-ec-sha3-224", "", ["root-cert"], ["ca-cert-ec-named"], @prov),
+        "accept cert generated with EC and SHA3-224 w/fips");
+    ok(verify("ee-cert-ec-sha3-256", "", ["root-cert"], ["ca-cert-ec-named"], @prov),
+        "accept cert generated with EC and SHA3-256 w/fips");
+    ok(verify("ee-cert-ec-sha3-384", "", ["root-cert"], ["ca-cert-ec-named"], @prov),
+        "accept cert generated with EC and SHA3-384 w/fips");
+    ok(verify("ee-cert-ec-sha3-512", "", ["root-cert"], ["ca-cert-ec-named"], @prov),
+        "accept cert generated with EC and SHA3-512 w/fips");
+
+    delete $ENV{OPENSSL_CONF};
 
     run(test(["fips_version_test", "-config", $provconf, ">3.0.0"]),
              capture => 1, statusvar => \my $exit);
@@ -335,7 +399,6 @@ SKIP: {
     ok(verify("ee-cert-ec-named-named", "", ["root-cert"],
               ["ca-cert-ec-named"], @prov),
         "accept named curve leaf with named curve intermediate w/fips");
-
     delete $ENV{OPENSSL_CONF};
 }
 
@@ -405,6 +468,9 @@ ok(!verify("badalt10-cert", "", ["root-cert"], ["ncca1-cert", "ncca3-cert"], ),
 ok(!verify("bad-othername-cert", "", ["root-cert"], ["nccaothername-cert"], ),
    "CVE-2022-4203 type confusion test");
 
+ok(verify("nc-uri-cert", "", ["root-cert"], ["ncca4-cert"], ),
+   "Name constraints URI with userinfo");
+
 #Check that we get the expected failure return code
 with({ exit_checker => sub { return shift == 2; } },
      sub {
@@ -453,7 +519,7 @@ ok(verify("ee-ss-with-keyCertSign", "", ["ee-ss-with-keyCertSign"], []),
 
 SKIP: {
     skip "Ed25519 is not supported by this OpenSSL build", 6
-        if disabled("ec");
+        if disabled("ecx");
 
     # ED25519 certificate from draft-ietf-curdle-pkix-04
     ok(verify("ee-ed25519", "", ["root-ed25519"], []),
@@ -527,3 +593,76 @@ ok(!verify("ee-cert-policies-bad", "", ["root-cert"], ["ca-pol-cert"],
            "-policy_check", "-policy", "1.3.6.1.4.1.16604.998855.1",
            "-explicit_policy"),
    "Bad certificate policy");
+
+# CVE-2026-28388
+my $cve_28388_stderr = "cve-2026-28388.err";
+run(app(["openssl", "verify",
+         "-attime", "1739527200",
+         "-CAfile", srctop_file(@certspath, "cve-2026-28388-ca.pem"),
+         "-crl_check", "-use_deltas",
+         "-CRLfile", srctop_file(@certspath, "cve-2026-28388-crls.pem"),
+         srctop_file(@certspath, "cve-2026-28388-leaf.pem")],
+         stderr => $cve_28388_stderr));
+ok(grep(/CRL is not yet valid/, do { open my $fh, '<', $cve_28388_stderr; <$fh> }),
+   "CVE-2026-28388");
+
+# Delta CRLs must not be accepted as complete CRLs
+my $delta_crl_as_complete_stderr = "delta-crl-as-complete.err";
+ok(!run(app(["openssl", "verify", "-auth_level", "1",
+             "-CAfile",
+             srctop_file(@certspath, "delta-crl-as-complete-ca.pem"),
+             "-no_check_time", "-crl_check",
+             "-CRLfile",
+             srctop_file(@certspath, "delta-crl-as-complete-delta.pem"),
+             srctop_file(@certspath, "delta-crl-as-complete-leaf.pem")],
+             stderr => $delta_crl_as_complete_stderr))
+   && grep(/unable to get certificate CRL/,
+           do { open my $fh, '<', $delta_crl_as_complete_stderr; <$fh> }),
+   "Delta CRL is not accepted as complete CRL");
+
+my $delta_crl_as_complete_reasons_stderr =
+    "delta-crl-as-complete-reasons.err";
+ok(!run(app(["openssl", "verify", "-auth_level", "1",
+             "-CAfile",
+             srctop_file(@certspath, "delta-crl-as-complete-ca.pem"),
+             "-no_check_time", "-crl_check", "-extended_crl",
+             "-CRLfile",
+             srctop_file(@certspath,
+                         "delta-crl-as-complete-delta-reasons.pem"),
+             srctop_file(@certspath, "delta-crl-as-complete-leaf.pem")],
+             stderr => $delta_crl_as_complete_reasons_stderr))
+   && grep(/unable to get certificate CRL/,
+           do {
+               open my $fh, '<', $delta_crl_as_complete_reasons_stderr;
+               <$fh>
+           }),
+   "Delta CRL with onlySomeReasons is not accepted as complete CRL");
+
+# CAstore option
+my $rootcertname = "root-cert";
+my $rootcert = srctop_file(@certspath, "${rootcertname}.pem");
+sub vfy_root { verify($rootcertname, "", [], [], @_) }
+ok(vfy_root("-CAfile", $rootcert), "CAfile");
+ok(vfy_root("-CAstore", $rootcert), "CAstore");
+ok(vfy_root("-CAstore", $rootcert, "-CAfile", $rootcert), "CAfile and existing CAstore");
+ok(!vfy_root("-CAstore", "non-existing", "-CAfile", $rootcert), "CAfile and non-existing CAstore");
+
+SKIP: {
+    skip "file names with colons aren't supported on Windows and VMS", 1
+        if $^O =~ /^(MSWin32|VMS)$/;
+    my $foo_file = "foo:cert.pem";
+    copy($rootcert, $foo_file);
+    ok(vfy_root("-CAstore", $foo_file), "CAstore foo:file");
+}
+my $foo_file = "cert.pem";
+copy($rootcert, $foo_file);
+ok(vfy_root("-CAstore", $foo_file), "CAstore foo:file");
+my $abs_cert = abs_path($rootcert);
+# Windows file: URIs should have a path part starting with a slash, i.e.
+# file://authority/C:/what/ever/foo.pem and file:///C:/what/ever/foo.pem
+# file://C:/what/ever/foo.pem is non-standard and may not be accepted.
+# See RFC 8089 for details.
+$abs_cert = "/" . $abs_cert if ($^O eq "MSWin32");
+ok(vfy_root("-CAstore", "file://".$abs_cert), "CAstore file:///path");
+ok(vfy_root("-CAstore", "file://localhost".$abs_cert), "CAstore file://localhost/path");
+ok(!vfy_root("-CAstore", "file://otherhost".$abs_cert), "CAstore file://otherhost/path");

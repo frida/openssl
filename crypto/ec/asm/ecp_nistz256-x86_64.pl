@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2014-2020 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2014-2026 The OpenSSL Project Authors. All Rights Reserved.
 # Copyright (c) 2014, Intel Corporation. All Rights Reserved.
 # Copyright (c) 2015 CloudFlare, Inc.
 #
@@ -80,11 +80,20 @@ if (!$addx && `$ENV{CC} -v 2>&1` =~ /((?:clang|LLVM) version|.*based on LLVM) ([
 	$addx = ($ver>=3.03);
 }
 
+if (!$addx && `$ENV{CC} -x c /dev/null -dM -E|grep __clang_major__`
+	=~ /#define __clang_major__.([0-9]+)/) {
+	if ($1) {
+		$avx = ($1>=11); #icx started with clang 11
+		$addx = ($1>=11);
+	}
+}
+
 $code.=<<___;
 .text
 .extern	OPENSSL_ia32cap_P
 
 # The polynomial
+.section .rodata align=4096
 .align 64
 .Lpoly:
 .quad 0xffffffffffffffff, 0x00000000ffffffff, 0x0000000000000000, 0xffffffff00000001
@@ -107,6 +116,7 @@ $code.=<<___;
 .quad 0xf3b9cac2fc632551, 0xbce6faada7179e84, 0xffffffffffffffff, 0xffffffff00000000
 .LordK:
 .quad 0xccd1c8aaee00bc4f
+.previous
 ___
 
 {
@@ -4723,7 +4733,7 @@ close TABLE;
 die "insane number of elements" if ($#arr != 64*16*37-1);
 
 print <<___;
-.text
+.section .rodata align=4096
 .globl	ecp_nistz256_precomputed
 .type	ecp_nistz256_precomputed,\@object
 .align	4096

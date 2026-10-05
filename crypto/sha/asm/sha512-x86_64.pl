@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2005-2020 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2005-2026 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -138,6 +138,13 @@ if (!$avx && $win64 && ($flavour =~ /masm/ || $ENV{ASM} =~ /ml64/) &&
 
 if (!$avx && `$ENV{CC} -v 2>&1` =~ /((?:clang|LLVM) version|.*based on LLVM) ([0-9]+\.[0-9]+)/) {
 	$avx = ($2>=3.0) + ($2>3.0);
+}
+
+if (!$avx && `$ENV{CC} -x c /dev/null -dM -E|grep __clang_major__`
+	=~ /#define __clang_major__.([0-9]+)/) {
+	if ($1) {
+		$avx = ($1>=11); #icx started with clang 11
+	}
 }
 
 $shaext=1;	### set to zero if compiling for 1.0.1
@@ -418,6 +425,7 @@ ___
 
 if ($SZ==4) {
 $code.=<<___;
+.section .rodata align=64
 .align	64
 .type	$TABLE,\@object
 $TABLE:
@@ -461,9 +469,11 @@ $TABLE:
 	.long	0xffffffff,0xffffffff,0x03020100,0x0b0a0908
 	.long	0xffffffff,0xffffffff,0x03020100,0x0b0a0908
 	.asciz	"SHA256 block transform for x86_64, CRYPTOGAMS by <appro\@openssl.org>"
+.previous
 ___
 } else {
 $code.=<<___;
+.section .rodata align=64
 .align	64
 .type	$TABLE,\@object
 $TABLE:
@@ -551,6 +561,7 @@ $TABLE:
 	.quad	0x0001020304050607,0x08090a0b0c0d0e0f
 	.quad	0x0001020304050607,0x08090a0b0c0d0e0f
 	.asciz	"SHA512 block transform for x86_64, CRYPTOGAMS by <appro\@openssl.org>"
+.previous
 ___
 }
 

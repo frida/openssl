@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2015-2022 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2015-2026 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -14,6 +14,7 @@ use POSIX;
 use File::Spec::Functions qw/devnull catfile/;
 use File::Basename;
 use File::Copy;
+use File::Compare qw/compare/;
 use OpenSSL::Test qw/:DEFAULT with pipe srctop_dir data_file/;
 use OpenSSL::Test::Utils;
 
@@ -36,22 +37,24 @@ sub test_ocsp {
     }
     my $expected_exit = shift;
     my $nochecks = shift;
+    my $opt_untrusted = shift // "-verify_other";
     my $outputfile = basename($inputfile, '.ors') . '.dat';
 
     run(app(["openssl", "base64", "-d",
              "-in", catfile($ocspdir,$inputfile),
              "-out", $outputfile]));
+    my @certopt = ($opt_untrusted, catfile($ocspdir, $untrusted));
     with({ exit_checker => sub { return shift == $expected_exit; } },
          sub { ok(run(app(["openssl", "ocsp", "-respin", $outputfile,
                            "-partial_chain", @check_time,
                            "-CAfile", catfile($ocspdir, $CAfile),
-                           "-verify_other", catfile($ocspdir, $untrusted),
+                           @certopt,
                            "-no-CApath", "-no-CAstore",
                            $nochecks ? "-no_cert_checks" : ()])),
                   $title); });
 }
 
-plan tests => 11;
+plan tests => 13;
 
 subtest "=== VALID OCSP RESPONSES ===" => sub {
     plan tests => 7;
@@ -220,9 +223,37 @@ subtest "=== INVALID SIGNATURE on the ISSUER CERTIFICATE ===" => sub {
               "D3.ors", "ISIC_D3_Issuer_Root.pem", "", 0, 0);
 };
 
+my $cert = data_file("cert.pem");
+my $key = data_file("key.pem");
 subtest "=== OCSP API TESTS===" => sub {
     plan tests => 1;
 
-    ok(run(test(["ocspapitest", data_file("cert.pem"), data_file("key.pem")])),
+    ok(run(test(["ocspapitest", $cert, $key])),
                  "running ocspapitest");
-}
+};
+
+subtest "=== UNTRUSTED ISSUER HINTS ===" => sub {
+    plan tests => 1;
+
+    test_ocsp("NON-DELEGATED; invalid issuer via -issuer",
+              "ND1.ors", "ND1_Cross_Root.pem",
+              "ISIC_ND1_Issuer_ICA.pem", 1, 0, "-issuer");
+};
+
+subtest "=== OCSP handling of identical input and output files ===" => sub {
+    plan tests => 5;
+
+    my $inout1 = "req.der";
+    my $backup1 = "backup.der";
+    ok(run(app(['openssl', 'ocsp', '-issuer', $cert, '-cert', $cert,
+                '-reqout', $inout1])), "produce dummy request input");
+    copy($inout1, $backup1);
+    ok(run(app(['openssl', 'ocsp', '-reqin', $inout1, '-reqout', $inout1])));
+    ok(!compare($inout1, $backup1), "copied request $inout1 did not change");
+
+    my $inout2 = "ND1.dat";
+    my $backup2 = "backup.dat";
+    copy($inout2, $backup2);
+    ok(run(app(['openssl', 'ocsp', '-respin', $inout2, '-respout', $inout2, '-noverify'])));
+    ok(!compare($inout2, $backup2), "copied response $inout2 did not change");
+};

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2020 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2014-2026 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -9,6 +9,7 @@
 
 #include "internal/cryptlib.h"
 #include "bn_local.h"
+#include "internal/constant_time.h"
 
 /*
  * Determine the modified width-(w+1) Non-Adjacent Form (wNAF) of 'scalar'.
@@ -29,23 +30,21 @@ signed char *bn_compute_wNAF(const BIGNUM *scalar, int w, size_t *ret_len)
 
     if (BN_is_zero(scalar)) {
         r = OPENSSL_malloc(1);
-        if (r == NULL) {
-            ERR_raise(ERR_LIB_BN, ERR_R_MALLOC_FAILURE);
+        if (r == NULL)
             goto err;
-        }
         r[0] = 0;
         *ret_len = 1;
         return r;
     }
 
-    if (w <= 0 || w > 7) {      /* 'signed char' can represent integers with
-                                 * absolute values less than 2^7 */
+    if (w <= 0 || w > 7) { /* 'signed char' can represent integers with
+                            * absolute values less than 2^7 */
         ERR_raise(ERR_LIB_BN, ERR_R_INTERNAL_ERROR);
         goto err;
     }
-    bit = 1 << w;               /* at most 128 */
-    next_bit = bit << 1;        /* at most 256 */
-    mask = next_bit - 1;        /* at most 255 */
+    bit = 1 << w; /* at most 128 */
+    next_bit = bit << 1; /* at most 256 */
+    mask = next_bit - 1; /* at most 255 */
 
     if (BN_is_negative(scalar)) {
         sign = -1;
@@ -62,10 +61,8 @@ signed char *bn_compute_wNAF(const BIGNUM *scalar, int w, size_t *ret_len)
                                   * (*ret_len will be set to the actual length, i.e. at most
                                   * BN_num_bits(scalar) + 1)
                                   */
-    if (r == NULL) {
-        ERR_raise(ERR_LIB_BN, ERR_R_MALLOC_FAILURE);
+    if (r == NULL)
         goto err;
-    }
     window_val = scalar->d[0] & mask;
     j = 0;
     while ((window_val != 0) || (j + w + 1 < len)) { /* if j+w+1 >= len,
@@ -81,7 +78,7 @@ signed char *bn_compute_wNAF(const BIGNUM *scalar, int w, size_t *ret_len)
             if (window_val & bit) {
                 digit = window_val - next_bit; /* -2^w < digit < 0 */
 
-#if 1                           /* modified wNAF */
+#if 1 /* modified wNAF */
                 if (j + w + 1 >= len) {
                     /*
                      * Special case for generating modified wNAFs:
@@ -133,7 +130,7 @@ signed char *bn_compute_wNAF(const BIGNUM *scalar, int w, size_t *ret_len)
     *ret_len = j;
     return r;
 
- err:
+err:
     OPENSSL_free(r);
     return NULL;
 }
@@ -154,6 +151,43 @@ void bn_set_all_zero(BIGNUM *a)
 
     for (i = a->top; i < a->dmax; i++)
         a->d[i] = 0;
+}
+
+/*
+ * Zero-extend |a| so that it occupies exactly |words| words, flag it
+ * BN_FLG_FIXED_TOP and leave its numeric value unchanged.
+ *
+ * This is a companion to bn_correct_top(): where the latter minimises the top
+ * of a BIGNUM, this one pins the top to a caller-chosen, value-independent
+ * width.  Constant-time code uses it to make the cost of subsequent word-wise
+ * operations (e.g. BN_uadd()/BN_add()) independent of the magnitude of a
+ * secret value.  |words| must be greater than or equal to the current top.
+ *
+ * The routine is itself constant time with respect to the current a->top: it
+ * always sweeps a fixed |words| iterations and selects value-or-zero per word
+ * with an arithmetic mask, rather than looping over the (possibly secret)
+ * a->top..words range.  Masking the high words with zero also launders any
+ * uninitialised padding, so it is safe for the memory sanitiser.
+ */
+int bn_set_top_fixed(BIGNUM *a, int words)
+{
+    size_t i, n = (size_t)words;
+    BN_ULONG mask;
+
+    if (words < a->top)
+        return 0;
+    if (bn_wexpand(a, words) == NULL) {
+        ERR_raise(ERR_LIB_BN, ERR_R_BN_LIB);
+        return 0;
+    }
+    for (i = 0; i < n; i++) {
+        /* mask = all ones iff i < a->top, else all zeros */
+        mask = value_barrier_bn((BN_ULONG)0 - ((i - a->top) >> (8 * sizeof(i) - 1)));
+        a->d[i] &= mask;
+    }
+    a->top = words;
+    a->flags |= BN_FLG_FIXED_TOP;
+    return 1;
 }
 
 int bn_copy_words(BN_ULONG *out, const BIGNUM *in, int size)
@@ -188,7 +222,7 @@ void bn_set_static_words(BIGNUM *a, const BN_ULONG *words, int size)
 int bn_set_words(BIGNUM *a, const BN_ULONG *words, int num_words)
 {
     if (bn_wexpand(a, num_words) == NULL) {
-        ERR_raise(ERR_LIB_BN, ERR_R_MALLOC_FAILURE);
+        ERR_raise(ERR_LIB_BN, ERR_R_BN_LIB);
         return 0;
     }
 

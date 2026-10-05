@@ -1,5 +1,5 @@
 /*-
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -17,7 +17,7 @@
 
 int main(int argc, char **argv)
 {
-    int rv = EXIT_FAILURE;
+    int ret = EXIT_FAILURE;
     OSSL_LIB_CTX *libctx = NULL;
     const char *propq = NULL;
     EVP_PKEY_CTX *ctx = NULL;
@@ -37,20 +37,20 @@ int main(int argc, char **argv)
      * for more information.
      */
     params[0] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_FFC_TYPE,
-                                                 "fips186_4", 0);
+        "fips186_4", 0);
     params[1] = OSSL_PARAM_construct_uint(OSSL_PKEY_PARAM_FFC_PBITS, &pbits);
     params[2] = OSSL_PARAM_construct_uint(OSSL_PKEY_PARAM_FFC_QBITS, &qbits);
     params[3] = OSSL_PARAM_construct_int(OSSL_PKEY_PARAM_FFC_GINDEX, &gindex);
     params[4] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_FFC_DIGEST,
-                                                 "SHA384", 0);
+        "SHA384", 0);
     params[5] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_FFC_DIGEST_PROPS,
-                                                 "provider=default", 0);
+        "provider=default", 0);
     params[6] = OSSL_PARAM_construct_end();
 
     /* Generate a dsa param key using optional params */
     if (EVP_PKEY_paramgen_init(ctx) <= 0
-            || EVP_PKEY_CTX_set_params(ctx, params) <= 0
-            || EVP_PKEY_paramgen(ctx, &dsaparamkey) <= 0) {
+        || EVP_PKEY_CTX_set_params(ctx, params) <= 0
+        || EVP_PKEY_paramgen(ctx, &dsaparamkey) <= 0) {
         fprintf(stderr, "DSA paramgen failed\n");
         goto cleanup;
     }
@@ -58,9 +58,9 @@ int main(int argc, char **argv)
     if (!dsa_print_key(dsaparamkey, 0, libctx, propq))
         goto cleanup;
 
-    rv = EXIT_SUCCESS;
+    ret = EXIT_SUCCESS;
 cleanup:
     EVP_PKEY_free(dsaparamkey);
     EVP_PKEY_CTX_free(ctx);
-    return rv;
+    return ret;
 }

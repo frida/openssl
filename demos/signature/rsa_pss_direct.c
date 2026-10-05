@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -21,7 +21,7 @@
  * The digest to be signed. This should be the output of a hash function.
  * Here we sign an all-zeroes digest for demonstration purposes.
  */
-static const unsigned char test_digest[32] = {0};
+static const unsigned char test_digest[32] = { 0 };
 
 /* A property query used for selecting algorithm implementations. */
 static const char *propq = NULL;
@@ -37,7 +37,7 @@ static const char *propq = NULL;
  */
 static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
 {
-    int rv = 0;
+    int ret = 0;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_MD *md = NULL;
@@ -48,7 +48,7 @@ static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
     /* Load DER-encoded RSA private key. */
     ppriv_key = rsa_priv_key;
     pkey = d2i_PrivateKey_ex(EVP_PKEY_RSA, NULL, &ppriv_key,
-                             sizeof(rsa_priv_key), libctx, propq);
+        sizeof(rsa_priv_key), libctx, propq);
     if (pkey == NULL) {
         fprintf(stderr, "Failed to load private key\n");
         goto end;
@@ -86,7 +86,8 @@ static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
 
     /* Determine length of signature. */
     if (EVP_PKEY_sign(ctx, NULL, sig_len,
-                      test_digest, sizeof(test_digest)) == 0) {
+            test_digest, sizeof(test_digest))
+        == 0) {
         fprintf(stderr, "Failed to get signature length\n");
         goto end;
     }
@@ -100,21 +101,22 @@ static int sign(OSSL_LIB_CTX *libctx, unsigned char **sig, size_t *sig_len)
 
     /* Generate signature. */
     if (EVP_PKEY_sign(ctx, *sig, sig_len,
-                      test_digest, sizeof(test_digest)) != 1) {
+            test_digest, sizeof(test_digest))
+        != 1) {
         fprintf(stderr, "Failed to sign\n");
         goto end;
     }
 
-    rv = 1;
+    ret = 1;
 end:
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(pkey);
     EVP_MD_free(md);
 
-    if (rv == 0)
+    if (ret == 0)
         OPENSSL_free(*sig);
 
-    return rv;
+    return ret;
 }
 
 /*
@@ -123,7 +125,7 @@ end:
  */
 static int verify(OSSL_LIB_CTX *libctx, const unsigned char *sig, size_t sig_len)
 {
-    int rv = 0;
+    int ret = 0;
     const unsigned char *ppub_key = NULL;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
@@ -169,23 +171,24 @@ static int verify(OSSL_LIB_CTX *libctx, const unsigned char *sig, size_t sig_len
 
     /* Verify signature. */
     if (EVP_PKEY_verify(ctx, sig, sig_len,
-                        test_digest, sizeof(test_digest)) == 0) {
+            test_digest, sizeof(test_digest))
+        == 0) {
         fprintf(stderr, "Failed to verify signature; "
-                "signature may be invalid\n");
+                        "signature may be invalid\n");
         goto end;
     }
 
-    rv = 1;
+    ret = 1;
 end:
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(pkey);
     EVP_MD_free(md);
-    return rv;
+    return ret;
 }
 
 int main(int argc, char **argv)
 {
-    int rv = 1;
+    int ret = EXIT_FAILURE;
     OSSL_LIB_CTX *libctx = NULL;
     unsigned char *sig = NULL;
     size_t sig_len = 0;
@@ -196,9 +199,11 @@ int main(int argc, char **argv)
     if (verify(libctx, sig, sig_len) == 0)
         goto end;
 
-    rv = 0;
+    printf("Success\n");
+
+    ret = EXIT_SUCCESS;
 end:
     OPENSSL_free(sig);
     OSSL_LIB_CTX_free(libctx);
-    return rv;
+    return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2026 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -13,10 +13,11 @@
 #include "prov/ciphercommon.h"
 #include "prov/ciphercommon_ccm.h"
 #include "prov/providercommon.h"
+#include "fips/fipsindicator.h"
 
 static int ccm_cipher_internal(PROV_CCM_CTX *ctx, unsigned char *out,
-                               size_t *padlen, const unsigned char *in,
-                               size_t len);
+    size_t *padlen, const unsigned char *in,
+    size_t len);
 
 static int ccm_tls_init(PROV_CCM_CTX *ctx, unsigned char *aad, size_t alen)
 {
@@ -50,7 +51,7 @@ static int ccm_tls_init(PROV_CCM_CTX *ctx, unsigned char *aad, size_t alen)
 }
 
 static int ccm_tls_iv_set_fixed(PROV_CCM_CTX *ctx, unsigned char *fixed,
-                                size_t flen)
+    size_t flen)
 {
     if (flen != EVP_CCM_TLS_FIXED_IV_LEN)
         return 0;
@@ -71,7 +72,7 @@ int ossl_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     const OSSL_PARAM *p;
     size_t sz;
 
-    if (params == NULL)
+    if (ossl_param_is_empty(params))
         return 1;
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TAG);
@@ -109,7 +110,10 @@ int ossl_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_IV_LENGTH);
             return 0;
         }
-        ctx->l = ivlen;
+        if (ctx->l != ivlen) {
+            ctx->l = ivlen;
+            ctx->iv_set = 0;
+        }
     }
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_AAD);
@@ -216,12 +220,12 @@ int ossl_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[])
         ctx->iv_set = 0;
         ctx->len_set = 0;
     }
-    return 1;
+    return OSSL_FIPS_IND_GET_CTX_PARAM_APPROVED(ctx, params);
 }
 
 static int ccm_init(void *vctx, const unsigned char *key, size_t keylen,
-                    const unsigned char *iv, size_t ivlen,
-                    const OSSL_PARAM params[], int enc)
+    const unsigned char *iv, size_t ivlen,
+    const OSSL_PARAM params[], int enc)
 {
     PROV_CCM_CTX *ctx = (PROV_CCM_CTX *)vctx;
 
@@ -250,22 +254,22 @@ static int ccm_init(void *vctx, const unsigned char *key, size_t keylen,
 }
 
 int ossl_ccm_einit(void *vctx, const unsigned char *key, size_t keylen,
-                   const unsigned char *iv, size_t ivlen,
-                   const OSSL_PARAM params[])
+    const unsigned char *iv, size_t ivlen,
+    const OSSL_PARAM params[])
 {
     return ccm_init(vctx, key, keylen, iv, ivlen, params, 1);
 }
 
 int ossl_ccm_dinit(void *vctx, const unsigned char *key, size_t keylen,
-                   const unsigned char *iv, size_t ivlen,
-                   const OSSL_PARAM params[])
+    const unsigned char *iv, size_t ivlen,
+    const OSSL_PARAM params[])
 {
     return ccm_init(vctx, key, keylen, iv, ivlen, params, 0);
 }
 
 int ossl_ccm_stream_update(void *vctx, unsigned char *out, size_t *outl,
-                           size_t outsize, const unsigned char *in,
-                           size_t inl)
+    size_t outsize, const unsigned char *in,
+    size_t inl)
 {
     PROV_CCM_CTX *ctx = (PROV_CCM_CTX *)vctx;
 
@@ -282,16 +286,22 @@ int ossl_ccm_stream_update(void *vctx, unsigned char *out, size_t *outl,
 }
 
 int ossl_ccm_stream_final(void *vctx, unsigned char *out, size_t *outl,
-                          size_t outsize)
+    size_t outsize)
 {
     PROV_CCM_CTX *ctx = (PROV_CCM_CTX *)vctx;
-    int i;
+    unsigned char dummy_in = 0, dummy_out = 0;
 
     if (!ossl_prov_is_running())
         return 0;
 
-    i = ccm_cipher_internal(ctx, out, outl, NULL, 0);
-    if (i <= 0)
+    /*
+     * Encryption sets tag_set after processing the payload, while successful
+     * decryption clears iv_set. Use those transitions to avoid processing an
+     * operation twice.
+     */
+    if (!ctx->key_set
+        || (ctx->iv_set && (!ctx->enc || !ctx->tag_set)
+            && ccm_cipher_internal(ctx, &dummy_out, outl, &dummy_in, 0) <= 0))
         return 0;
 
     *outl = 0;
@@ -299,12 +309,15 @@ int ossl_ccm_stream_final(void *vctx, unsigned char *out, size_t *outl,
 }
 
 int ossl_ccm_cipher(void *vctx, unsigned char *out, size_t *outl, size_t outsize,
-                    const unsigned char *in, size_t inl)
+    const unsigned char *in, size_t inl)
 {
     PROV_CCM_CTX *ctx = (PROV_CCM_CTX *)vctx;
 
     if (!ossl_prov_is_running())
         return 0;
+
+    if (in == NULL)
+        return ossl_ccm_stream_final(vctx, out, outl, outsize);
 
     if (outsize < inl) {
         ERR_raise(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
@@ -330,8 +343,8 @@ static int ccm_set_iv(PROV_CCM_CTX *ctx, size_t mlen)
 }
 
 static int ccm_tls_cipher(PROV_CCM_CTX *ctx,
-                          unsigned char *out, size_t *padlen,
-                          const unsigned char *in, size_t len)
+    unsigned char *out, size_t *padlen,
+    const unsigned char *in, size_t len)
 {
     int rv = 0;
     size_t olen = 0;
@@ -361,12 +374,12 @@ static int ccm_tls_cipher(PROV_CCM_CTX *ctx,
     in += EVP_CCM_TLS_EXPLICIT_IV_LEN;
     out += EVP_CCM_TLS_EXPLICIT_IV_LEN;
     if (ctx->enc) {
-        if (!ctx->hw->auth_encrypt(ctx, in, out, len,  out + len, ctx->m))
+        if (!ctx->hw->auth_encrypt(ctx, in, out, len, out + len, ctx->m))
             goto err;
         olen = len + EVP_CCM_TLS_EXPLICIT_IV_LEN + ctx->m;
     } else {
         if (!ctx->hw->auth_decrypt(ctx, in, out, len,
-                                   (unsigned char *)in + len, ctx->m))
+                (unsigned char *)in + len, ctx->m))
             goto err;
         olen = len;
     }
@@ -377,8 +390,8 @@ err:
 }
 
 static int ccm_cipher_internal(PROV_CCM_CTX *ctx, unsigned char *out,
-                               size_t *padlen, const unsigned char *in,
-                               size_t len)
+    size_t *padlen, const unsigned char *in,
+    size_t len)
 {
     int rv = 0;
     size_t olen = 0;

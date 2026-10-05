@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2015-2023 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2015-2026 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -25,6 +25,7 @@ use lib srctop_dir('Configurations');
 use lib bldtop_dir('.');
 
 my $no_fips = disabled('fips') || ($ENV{NO_FIPS} // 0);
+my $old_fips = 0;
 
 plan skip_all => "CMS is not supported by this OpenSSL build"
     if disabled("cms");
@@ -40,6 +41,8 @@ my @defaultprov = ("-provider-path", $provpath,
 
 my @config = ( );
 my $provname = 'default';
+my $dsaallow = '1';
+my $no_pqc = 0;
 
 my $datadir = srctop_dir("test", "recipes", "80-test_cms_data");
 my $smdir    = srctop_dir("test", "smime-certs");
@@ -50,13 +53,21 @@ my ($no_des, $no_dh, $no_dsa, $no_ec, $no_ec2m, $no_rc2, $no_zlib)
 
 $no_rc2 = 1 if disabled("legacy");
 
-plan tests => 18;
+plan tests => 38;
 
 ok(run(test(["pkcs7_test"])), "test pkcs7");
 
 unless ($no_fips) {
-    @config = ( "-config", srctop_file("test", "fips-and-base.cnf") );
+    my $provconf = srctop_file("test", "fips-and-base.cnf");
+    @config = ( "-config", $provconf );
     $provname = 'fips';
+
+    run(test(["fips_version_test", "-config", $provconf, "<3.4.0"]),
+        capture => 1, statusvar => \$dsaallow);
+    $no_dsa = 1 if $dsaallow == '0';
+    $old_fips = 1 if $dsaallow != '0';
+    run(test(["fips_version_test", "-config", $provconf, "<3.5.0"]),
+        capture => 1, statusvar => \$no_pqc);
 }
 
 $ENV{OPENSSL_TEST_LIBCTX} = "1";
@@ -75,6 +86,15 @@ my @smime_pkcs7_tests = (
         "-certfile", $smroot, "-signer", $smrsa1, "-out", "{output}.cms" ],
       [ "{cmd2}",  @prov, "-verify", "-in", "{output}.cms", "-inform", "DER",
         "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ],
+
+    [ "signed text content DER format, RSA key",
+      [ "{cmd1}", @prov, "-sign", "-in", $smcont, "-outform", "DER", "-nodetach",
+        "-certfile", $smroot, "-signer", $smrsa1, "-text",
+        "-out", "{output}.cms" ],
+      [ "{cmd2}",  @prov, "-verify", "-in", "{output}.cms", "-inform", "DER",
+        "-text", "-CAfile", $smroot, "-out", "{output}.txt" ],
       \&final_compare
     ],
 
@@ -211,6 +231,14 @@ my @smime_pkcs7_tests = (
       \&final_compare
     ],
 
+    [ "enveloped text content streaming S/MIME format, DES, 1 recipient",
+      [ "{cmd1}", @defaultprov, "-encrypt", "-in", $smcont,
+        "-stream", "-text", "-out", "{output}.cms", $smrsa1 ],
+      [ "{cmd2}", @defaultprov, "-decrypt", "-recip", $smrsa1,
+        "-in", "{output}.cms", "-text", "-out", "{output}.txt" ],
+      \&final_compare
+    ],
+
     [ "enveloped content test streaming S/MIME format, DES, 3 recipients, 3rd used",
       [ "{cmd1}", @defaultprov, "-encrypt", "-in", $smcont,
         "-stream", "-out", "{output}.cms",
@@ -222,29 +250,35 @@ my @smime_pkcs7_tests = (
       \&final_compare
     ],
 
-    [ "enveloped content test streaming S/MIME format, DES, 3 recipients, key only used",
+    [ "enveloped content test streaming S/MIME format, DES, 3 recipients, cert and key files used",
       [ "{cmd1}", @defaultprov, "-encrypt", "-in", $smcont,
         "-stream", "-out", "{output}.cms",
         $smrsa1,
         catfile($smdir, "smrsa2.pem"),
-        catfile($smdir, "smrsa3.pem") ],
-      [ "{cmd2}", @defaultprov, "-decrypt", "-inkey", catfile($smdir, "smrsa3.pem"),
-        "-in", "{output}.cms", "-out", "{output}.txt" ],
-      \&final_compare
-    ],
-
-    [ "enveloped content test streaming S/MIME format, AES-256 cipher, 3 recipients",
-      [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
-        "-aes256", "-stream", "-out", "{output}.cms",
-        $smrsa1,
-        catfile($smdir, "smrsa2.pem"),
-        catfile($smdir, "smrsa3.pem") ],
-      [ "{cmd2}", @prov, "-decrypt", "-recip", $smrsa1,
+        catfile($smdir, "smrsa3-cert.pem") ],
+      [ "{cmd2}", @defaultprov, "-decrypt",
+	"-recip", catfile($smdir, "smrsa3-cert.pem"),
+	"-inkey", catfile($smdir, "smrsa3-key.pem"),
         "-in", "{output}.cms", "-out", "{output}.txt" ],
       \&final_compare
     ],
 
 );
+
+if ($no_fips || $old_fips) {
+    push(@smime_pkcs7_tests,
+         [ "enveloped content test streaming S/MIME format, AES-256 cipher, 3 recipients",
+           [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
+             "-aes256", "-stream", "-out", "{output}.cms",
+             $smrsa1,
+             catfile($smdir, "smrsa2.pem"),
+             catfile($smdir, "smrsa3.pem") ],
+           [ "{cmd2}", @prov, "-decrypt", "-recip", $smrsa1,
+             "-in", "{output}.cms", "-out", "{output}.txt" ],
+           \&final_compare
+         ]
+    );
+}
 
 my @smime_cms_tests = (
 
@@ -340,6 +374,16 @@ my @smime_cms_tests = (
       \&final_compare
     ],
 
+    [ "enveloped content test streaming PEM format, AES-128-CBC cipher, password",
+      [ "{cmd1}", @prov, "-encrypt", "-in", $smcont, "-outform", "PEM", "-aes128",
+        "-stream", "-out", "{output}.cms",
+        "-pwri_password", "test" ],
+      [ "{cmd2}", @prov, "-decrypt", "-in", "{output}.cms", "-out", "{output}.txt",
+        "-inform", "PEM",
+        "-pwri_password", "test" ],
+      \&final_compare
+    ],
+
     [ "data content test streaming PEM format",
       [ "{cmd1}", @prov, "-data_create", "-in", $smcont, "-outform", "PEM",
         "-nodetach", "-stream", "-out", "{output}.cms" ],
@@ -372,7 +416,7 @@ my @smime_cms_tests = (
     ],
 
     [ "encrypted content test streaming PEM format, triple DES key",
-      [ "{cmd1}", @prov, "-EncryptedData_encrypt", "-in", $smcont, "-outform", "PEM",
+      [ "{cmd1}", @defaultprov, "-EncryptedData_encrypt", "-in", $smcont, "-outform", "PEM",
         "-des3", "-secretkey", "000102030405060708090A0B0C0D0E0F1011121314151617",
         "-stream", "-out", "{output}.cms" ],
       [ "{cmd2}", @prov, "-EncryptedData_decrypt", "-in", "{output}.cms",
@@ -391,6 +435,13 @@ my @smime_cms_tests = (
         "-secretkey", "000102030405060708090A0B0C0D0E0F",
         "-out", "{output}.txt" ],
       \&final_compare
+    ],
+
+    [ "encrypted content test streaming PEM format -noout, 128 bit AES key",
+      [ "{cmd1}", @prov, "-EncryptedData_encrypt", "-in", $smcont, "-outform", "PEM",
+	"-aes128", "-secretkey", "000102030405060708090A0B0C0D0E0F",
+	"-stream", "-noout" ],
+      [ "{cmd2}", @prov, "-help" ]
     ],
 );
 
@@ -452,10 +503,10 @@ my @smime_cms_cades_tests = (
 my @smime_cms_cades_ko_tests = (
     [ "sign content DER format, RSA key, not CAdES-BES compatible",
       [ @prov, "-sign", "-in", $smcont, "-outform", "DER", "-nodetach",
-        "-certfile", $smroot, "-signer", $smrsa1, "-out", "{output}.cms" ],
+        "-certfile", $smroot, "-signer", $smrsa1, "-out", "cades-ko.cms" ],
       "fail to verify token since requiring CAdES-BES compatibility",
-      [ @prov, "-verify", "-cades", "-in", "{output}.cms", "-inform", "DER",
-        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      [ @prov, "-verify", "-cades", "-in", "cades-ko.cms", "-inform", "DER",
+        "-CAfile", $smroot, "-out", "cades-ko.txt" ],
       \&final_compare
     ]
 );
@@ -495,12 +546,12 @@ my @smime_cms_param_tests = (
     ],
 
     [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=max",
-      [ "{cmd1}", @prov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+      [ "{cmd1}", @defaultprov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
         "-signer", $smrsa1,
         "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:max",
         "-out", "{output}.cms" ],
       sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 222; },
-      [ "{cmd2}", @prov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+      [ "{cmd2}", @defaultprov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
         "-CAfile", $smroot, "-out", "{output}.txt" ],
       \&final_compare
     ],
@@ -598,43 +649,79 @@ my @smime_cms_param_tests = (
     ],
 
     [ "enveloped content test streaming S/MIME format, ECDH, AES-128-CBC, SHA256 KDF",
-      [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
+      [ "{cmd1}", @defaultprov, "-encrypt", "-in", $smcont,
         "-stream", "-out", "{output}.cms",
         "-recip", catfile($smdir, "smec1.pem"), "-aes128",
         "-keyopt", "ecdh_kdf_md:sha256" ],
-      [ "{cmd2}", @prov, "-decrypt", "-recip", catfile($smdir, "smec1.pem"),
+      sub { my %opts = @_; smimeType_matches("$opts{output}.cms", "enveloped-data"); },
+      [ "{cmd2}", @defaultprov, "-decrypt", "-recip", catfile($smdir, "smec1.pem"),
         "-in", "{output}.cms", "-out", "{output}.txt" ],
       \&final_compare
     ],
 
     [ "enveloped content test streaming S/MIME format, ECDH, AES-128-GCM cipher, SHA256 KDF",
-      [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
+      [ "{cmd1}", @defaultprov, "-encrypt", "-in", $smcont,
         "-stream", "-out", "{output}.cms",
         "-recip", catfile($smdir, "smec1.pem"), "-aes-128-gcm", "-keyopt", "ecdh_kdf_md:sha256" ],
+      sub { my %opts = @_; smimeType_matches("$opts{output}.cms", "authEnveloped-data"); },
       [ "{cmd2}", "-decrypt", "-recip", catfile($smdir, "smec1.pem"),
         "-in", "{output}.cms", "-out", "{output}.txt" ],
       \&final_compare
     ],
 
     [ "enveloped content test streaming S/MIME format, ECDH, K-283, cofactor DH",
-      [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
+      [ "{cmd1}", @defaultprov, "-encrypt", "-in", $smcont,
         "-stream", "-out", "{output}.cms",
         "-recip", catfile($smdir, "smec2.pem"), "-aes128",
         "-keyopt", "ecdh_kdf_md:sha256", "-keyopt", "ecdh_cofactor_mode:1" ],
-      [ "{cmd2}", @prov, "-decrypt", "-recip", catfile($smdir, "smec2.pem"),
-        "-in", "{output}.cms", "-out", "{output}.txt" ],
-      \&final_compare
-    ],
-
-    [ "enveloped content test streaming S/MIME format, X9.42 DH",
-      [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
-        "-stream", "-out", "{output}.cms",
-        "-recip", catfile($smdir, "smdh.pem"), "-aes128" ],
-      [ "{cmd2}", @prov, "-decrypt", "-recip", catfile($smdir, "smdh.pem"),
+      [ "{cmd2}", @defaultprov, "-decrypt", "-recip", catfile($smdir, "smec2.pem"),
         "-in", "{output}.cms", "-out", "{output}.txt" ],
       \&final_compare
     ]
 );
+
+if ($no_fips || $old_fips) {
+    # Only SHA1 supported in dh_cms_encrypt()
+    push(@smime_cms_param_tests,
+
+	 [ "enveloped content test streaming S/MIME format, X9.42 DH",
+	   [ "{cmd1}", @prov, "-encrypt", "-in", $smcont,
+	     "-stream", "-out", "{output}.cms",
+	     "-recip", catfile($smdir, "smdh.pem"), "-aes128" ],
+	   [ "{cmd2}", @prov, "-decrypt", "-recip", catfile($smdir, "smdh.pem"),
+	     "-in", "{output}.cms", "-out", "{output}.txt" ],
+	   \&final_compare
+	 ]
+    );
+}
+
+my @smime_cms_param_tests_autodigestmax = (
+    [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=auto-digestmax, digestsize < maximum salt length",
+      [ "{cmd1}", @prov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+        "-signer", $smrsa1, "-md", "sha256",
+        "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:auto-digestmax",
+        "-out", "{output}.cms" ],
+      # digest is SHA-256, which produces 32, bytes of output
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 32; },
+      [ "{cmd2}", @defaultprov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ],
+
+    [ "signed content test streaming PEM format, RSA keys, PSS signature, saltlen=auto-digestmax, digestsize > maximum salt length",
+      [ "{cmd1}", @defaultprov, "-sign", "-in", $smcont, "-outform", "PEM", "-nodetach",
+        "-signer", $smrsa1024, "-md", "sha512",
+        "-keyopt", "rsa_padding_mode:pss", "-keyopt", "rsa_pss_saltlen:auto-digestmax",
+        "-out", "{output}.cms" ],
+      # digest is SHA-512, which produces 64, bytes of output, but an RSA-PSS
+      # signature with a 1024 bit RSA key can only accommodate 62
+      sub { my %opts = @_; rsapssSaltlen("$opts{output}.cms") == 62; },
+      [ "{cmd2}", @defaultprov, "-verify", "-in", "{output}.cms", "-inform", "PEM",
+        "-CAfile", $smroot, "-out", "{output}.txt" ],
+      \&final_compare
+    ]
+);
+
 
 my @contenttype_cms_test = (
     [ "signed content test - check that content type is added to additional signerinfo, RSA keys",
@@ -709,6 +796,18 @@ sub zero_compare {
     return (-e "$opts{output}.txt" && -z "$opts{output}.txt");
 }
 
+sub read_file_text {
+    my ($file) = @_;
+    open(my $fh, "<", $file) or return undef;
+    binmode $fh;
+    local $/;
+    my $data = <$fh>;
+    close($fh);
+    # Normalise line endings as -out is written in text mode on Windows.
+    $data =~ s/\r\n/\n/g if defined $data;
+    return $data;
+}
+
 subtest "CMS => PKCS#7 compatibility tests\n" => sub {
     plan tests => scalar @smime_pkcs7_tests;
 
@@ -733,7 +832,21 @@ subtest "CMS <=> CMS consistency tests\n" => sub {
 
 subtest "CMS <=> CMS consistency tests, modified key parameters\n" => sub {
     plan tests =>
-        (scalar @smime_cms_param_tests) + (scalar @smime_cms_comp_tests);
+        (scalar @smime_cms_param_tests) + (scalar @smime_cms_comp_tests) +
+        (scalar @smime_cms_param_tests_autodigestmax) + 1;
+
+    ok(run(app(["openssl", "cms", @prov,
+                "-sign", "-in", $smcont,
+                "-outform", "PEM",
+                "-nodetach",
+                "-signer", $smrsa1,
+                "-keyopt", "rsa_padding_mode:pss",
+                "-keyopt", "rsa_pss_saltlen:auto-digestmax",
+                "-out", "digestmaxtest.cms"])));
+    # Providers that do not support rsa_pss_saltlen:auto-digestmax will parse
+    # it as 0
+    my $no_autodigestmax = rsapssSaltlen("digestmaxtest.cms") == 0;
+    1 while unlink "digestmaxtest.cms";
 
     runner_loop(prefix => 'cms2cms-mod', cmd1 => 'cms', cmd2 => 'cms',
                 tests => [ @smime_cms_param_tests ]);
@@ -745,6 +858,15 @@ subtest "CMS <=> CMS consistency tests, modified key parameters\n" => sub {
       runner_loop(prefix => 'cms2cms-comp', cmd1 => 'cms', cmd2 => 'cms',
                   tests => [ @smime_cms_comp_tests ]);
     }
+
+  SKIP: {
+    skip("rsa_pss_saltlen:auto-digestmax not supported",
+         scalar @smime_cms_param_tests_autodigestmax)
+       if $no_autodigestmax;
+
+       runner_loop(prefix => 'cms2cms-comp', 'cmd1' => 'cms', cmd2 => 'cms',
+                   tests => [ @smime_cms_param_tests_autodigestmax ]);
+  }
 };
 
 # Returns the number of matches of a Content Type Attribute in a binary file.
@@ -761,6 +883,28 @@ sub contentType_matches {
 
   close(HEX_IN);
   return scalar(@c);
+}
+
+# Returns 1 if the smime-type matches the passed parameter, otherwise 0.
+sub smimeType_matches {
+  my ($in, $expected_smime_type) = @_;
+
+  # Read the text file
+  open(my $fh, '<', $in) or die("open failed for $in : $!");
+  local $/;
+  my $content = <$fh>;
+  close($fh);
+
+  # Extract the Content-Type line with the smime-type attribute
+  if ($content =~ /Content-Type:\s*application\/pkcs7-mime.*smime-type=([^\s;]+)/) {
+    my $smime_type = $1;
+
+    # Compare the extracted smime-type with the expected value
+    return ($smime_type eq $expected_smime_type) ? 1 : 0;
+  }
+
+  # If no smime-type is found, return 0
+  return 0;
 }
 
 sub rsapssSaltlen {
@@ -872,6 +1016,56 @@ subtest "CMS Decrypt message encrypted with OpenSSL 1.1.1\n" => sub {
     }
 };
 
+subtest "CMS parse authenticatedData authAttrs and unauthAttrs\n" => sub {
+    plan tests => 3;
+
+    # BouncyCastle authenticatedData (HMAC-SHA256, KEK) carrying both an
+    # authenticated and an unauthenticated attribute. Per RFC 5652 these are
+    # SET OF Attribute, so with the CMS_AuthenticatedData template fixed to use
+    # X509_ATTRIBUTE they are rendered as attributes (object:/set:) rather than
+    # as an X509_ALGOR (algorithm:/parameter:) they were misparsed into before.
+    my $exit = 0;
+    my $dump = join "\n",
+               run(app(["openssl", "cms", @defaultprov, "-cmsout", "-noout",
+                        "-print", "-inform", "PEM",
+                        "-in", catfile($datadir, "authenticated_attrs.pem")]),
+                   capture => 1,
+                   statusvar => $exit);
+
+    is($exit, 0, "parse authenticatedData with attributes");
+    ok($dump =~ /authAttrs:.*?object:.*?1\.3\.6\.1\.4\.1\.5949\.99\.1.*?UTF8STRING:auth-attr-value/s,
+       "authAttrs parsed as SET OF Attribute");
+    ok($dump =~ /unauthAttrs:.*?object:.*?1\.3\.6\.1\.4\.1\.5949\.99\.2.*?UTF8STRING:unauth-attr-value/s,
+       "unauthAttrs parsed as SET OF Attribute");
+};
+
+subtest "CMS decrypt authEnvelopedData with authenticated attributes\n" => sub {
+    plan tests => 4;
+
+    # BouncyCastle AES-128-GCM authEnvelopedData (KEK) carrying authAttrs;
+    # a clean decrypt confirms the authAttrs are verified as the AEAD AAD.
+    1 while unlink "authattrs.txt";
+    ok(run(app(["openssl", "cms", @defaultprov, "-decrypt", "-inform", "PEM",
+                "-secretkey", "000102030405060708090A0B0C0D0E0F",
+                "-secretkeyid", "C0FEE0",
+                "-in", catfile($datadir, "authenveloped_attrs.pem"),
+                "-out", "authattrs.txt" ])),
+       "decrypt authEnvelopedData with authAttrs");
+    is(read_file_text("authattrs.txt"), "Hello AuthEnvelopedData world\n",
+       "decrypted authEnvelopedData plaintext matches expected");
+
+    # A flipped authAttrs byte must fail the tag check and leave -out empty.
+    1 while unlink "bad_authattrs.txt";
+    ok(!run(app(["openssl", "cms", @defaultprov, "-decrypt", "-inform", "PEM",
+                 "-secretkey", "000102030405060708090A0B0C0D0E0F",
+                 "-secretkeyid", "C0FEE0",
+                 "-in", catfile($datadir, "bad_authenveloped_attrs.pem"),
+                 "-out", "bad_authattrs.txt" ])),
+       "reject authEnvelopedData with tampered authAttrs");
+    ok(!-s "bad_authattrs.txt",
+       "tampered authEnvelopedData leaks no plaintext to -out");
+};
+
 subtest "CAdES <=> CAdES consistency tests\n" => sub {
     plan tests => (scalar @smime_cms_cades_tests);
 
@@ -894,6 +1088,7 @@ subtest "CAdES ko tests\n" => sub {
       SKIP: {
         my $skip_reason = check_availability($$_[0]);
         skip $skip_reason, 1 if $skip_reason;
+        1 while unlink "cades-ko.txt";
 
         ok(run(app(["openssl", "cms", @{$$_[1]}])), $$_[0]);
         ok(!run(app(["openssl", "cms", @{$$_[3]}])), $$_[2]);
@@ -941,6 +1136,196 @@ subtest "CMS binary input tests\n" => sub {
        "verify binary input with -binary missing -crlfeol");
 };
 
+subtest "CMS signed digest, DER format" => sub {
+    plan tests => 2;
+
+    # Pre-computed SHA256 digest of $smcont in hexadecimal form
+    my $digest = "ff236ef61b396355f75a4cc6e1c306d4c309084ae271a9e2ad6888f10a101b32";
+
+    my $sig_file = "signature.der";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-digest", $digest,
+                    "-outform", "DER",
+                    "-certfile", catfile($smdir, "smroot.pem"),
+                    "-signer", catfile($smdir, "smrsa1.pem"),
+                    "-out", $sig_file])),
+        "CMS sign pre-computed digest, DER format");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-inform", "DER",
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "Verify CMS signed digest, DER format");
+};
+
+subtest "CMS signed digest, DER format, no signing time" => sub {
+    # This test also enables CAdES mode and disables S/MIME capabilities
+    # to approximate the kind of signature required for a PAdES-compliant
+    # PDF signature.
+    plan tests => 4;
+
+    # Pre-computed SHA256 digest of $smcont in hexadecimal form
+    my $digest = "ff236ef61b396355f75a4cc6e1c306d4c309084ae271a9e2ad6888f10a101b32";
+
+    my $sig_file = "signature.der";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-digest", $digest,
+                    "-outform", "DER",
+                    "-no_signing_time",
+                    "-nosmimecap",
+                    "-cades",
+                    "-certfile", catfile($smdir, "smroot.pem"),
+                    "-signer", catfile($smdir, "smrsa1.pem"),
+                    "-out", $sig_file])),
+        "CMS sign pre-computed digest, DER format, no signing time");
+
+    my $exit = 0;
+    my $dump = join "\n",
+               run(app(["openssl", "cms", @prov, "-cmsout", "-noout", "-print",
+                            "-in", $sig_file,
+                            "-inform", "DER"]),
+                   capture => 1,
+                   statusvar => $exit);
+
+    is($exit, 0, "Parse CMS signed digest, DER format, no signing time");
+    is(index($dump, 'signingTime'), -1,
+        "Check that CMS signed digest does not contain signing time");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-inform", "DER",
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "Verify CMS signed digest, DER format, no signing time");
+};
+
+
+subtest "CMS signed digest, S/MIME format" => sub {
+    plan tests => 2;
+
+    # Pre-computed SHA256 digest of $smcont in hexadecimal form
+    my $digest = "ff236ef61b396355f75a4cc6e1c306d4c309084ae271a9e2ad6888f10a101b32";
+
+    my $sig_file = "signature.smime";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-digest", $digest,
+                    "-outform", "SMIME",
+                    "-certfile", catfile($smdir, "smroot.pem"),
+                    "-signer", catfile($smdir, "smrsa1.pem"),
+                    "-out", $sig_file])),
+        "CMS sign pre-computed digest, S/MIME format");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-inform", "SMIME",
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "Verify CMS signed digest, S/MIME format");
+};
+
+sub path_tests {
+    our $app = shift;
+    our @path = qw(test certs);
+    our $key = srctop_file(@path, "ee-key.pem");
+    our $ee = srctop_file(@path, "ee-cert.pem");
+    our $ca = srctop_file(@path, "ca-cert.pem");
+    our $root = srctop_file(@path, "root-cert.pem");
+    our $sig_file = "signature.p7s";
+
+    sub sign {
+        my $inter = shift;
+        my @inter = $inter ? ("-certfile", $inter) : ();
+        my $msg = shift;
+        ok(run(app(["openssl", $app, @prov, "-sign", "-in", $smcont,
+                    "-inkey", $key, "-signer", $ee, @inter,
+                    "-out", $sig_file],
+                   "accept $app sign with EE $msg".
+                   " intermediate CA certificates")));
+    }
+    sub verify {
+        my $inter = shift;
+        my @inter = $inter ? ("-certfile", $inter) : ();
+        my $msg = shift;
+        my $res = shift;
+        ok($res == run(app(["openssl", $app, @prov, "-verify", "-in", $sig_file,
+                            "-purpose", "sslserver", "-CAfile", $root, @inter,
+                            "-content", $smcont],
+                           "accept $app verify with EE ".
+                           "$msg intermediate CA certificates")));
+    }
+    sign($ca, "and");
+    verify(0, "with included", 1);
+    sign(0, "without");
+    verify(0, "without", 0);
+    verify($ca, "with added", 1);
+};
+subtest "CMS sign+verify cert path tests" => sub {
+    plan tests => 5;
+
+    path_tests("cms");
+};
+subtest "PKCS7 sign+verify cert path tests" => sub {
+    plan tests => 5;
+
+    path_tests("smime");
+};
+
+subtest "CMS code signing test" => sub {
+    plan tests => 7;
+    my $sig_file = "signature.p7s";
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-in", $smcont,
+                   "-certfile", catfile($smdir, "smroot.pem"),
+                   "-signer", catfile($smdir, "smrsa1.pem"),
+                   "-out", $sig_file])),
+       "accept perform CMS signature with smime certificate");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "accept verify CMS signature with smime certificate");
+
+    ok(!run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-purpose", "codesign",
+                    "-content", $smcont])),
+       "fail verify CMS signature with smime certificate for purpose code signing");
+
+    ok(!run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-purpose", "football",
+                    "-content", $smcont])),
+       "fail verify CMS signature with invalid purpose argument");
+
+    ok(run(app(["openssl", "cms", @prov, "-sign", "-in", $smcont,
+                   "-certfile", catfile($smdir, "smroot.pem"),
+                   "-signer", catfile($smdir, "csrsa1.pem"),
+                   "-out", $sig_file])),
+        "accept perform CMS signature with code signing certificate");
+
+    ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-purpose", "codesign",
+                    "-content", $smcont])),
+       "accept verify CMS signature with code signing certificate for purpose code signing");
+
+    ok(!run(app(["openssl", "cms", @prov, "-verify", "-in", $sig_file,
+                    "-CAfile", catfile($smdir, "smroot.pem"),
+                    "-content", $smcont])),
+       "fail verify CMS signature with code signing certificate for purpose smime_sign");
+};
+
+# Regression test for PKCS7_verify() ownership handling when
+# digestAlgorithms is an empty SET.
+# The malformed structure must fail cleanly without crashing or
+# triggering use-after-free behaviour.
+with({ exit_checker => sub { return shift == 4; } },
+    sub {
+        ok(run(app([
+                'openssl', 'smime',
+                '-verify',
+                '-noverify',
+                '-in',
+                srctop_file('test', 'smime-eml',
+                            'pkcs7-empty-digest-set.eml'),
+            ])),
+           "Check empty digestAlgorithms SET is handled safely");
+    });
+
 # Test case for missing MD algorithm (must not segfault)
 
 with({ exit_checker => sub { return shift == 4; } },
@@ -949,7 +1334,15 @@ with({ exit_checker => sub { return shift == 4; } },
                     '-inform', 'PEM',
                     '-in', data_file("pkcs7-md4.pem"),
                    ])),
-            "Check failure of EVP_DigestInit is handled correctly");
+            "Check failure of EVP_DigestInit in PKCS7 signed is handled");
+
+        ok(run(app(['openssl', 'smime', '-decrypt',
+                    '-inform', 'PEM',
+                    '-in', data_file("pkcs7-md4-encrypted.pem"),
+                    '-recip', srctop_file("test", "certs", "ee-cert.pem"),
+                    '-inkey', srctop_file("test", "certs", "ee-key.pem")
+                   ])),
+            "Check failure of EVP_DigestInit in PKCS7 signedAndEnveloped is handled");
     });
 
 sub check_availability {
@@ -983,6 +1376,32 @@ ok(!run(app(['openssl', 'cms', '-verify',
                                 "SignedInvalidMappingFromanyPolicyTest7.eml")
             ])),
    "issue#19643");
+
+# Check that users get error when using incorrect envelope type for AEAD algorithms
+ok(!run(app(['openssl', 'cms', '-decrypt',
+             '-inform', 'PEM', '-stream',
+             '-secretkey', '000102030405060708090A0B0C0D0E0F',
+             '-secretkeyid', 'C0FEE0',
+             '-in', srctop_file("test/cms-msg",
+                                "enveloped-content-type-for-aes-gcm.pem")
+            ])),
+   "Error AES-GCM in enveloped content type");
+
+# Check that kari encryption with originator does not segfault
+with({ exit_checker => sub { return shift == 3; } },
+  sub {
+    SKIP: {
+      skip "EC is not supported in this build", 1 if $no_ec;
+
+      ok(run(app(['openssl', 'cms', '-encrypt',
+                  '-in', srctop_file("test", "smcont.txt"), '-aes128',
+                  '-recip', catfile($smdir, "smec1.pem"),
+                  '-originator', catfile($smdir, "smec3.pem"),
+                  '-inkey', catfile($smdir, "smec3.pem")
+                ])),
+          "Check failure for currently not supported kari encryption with static originator");
+    }
+  });
 
 # Check that we get the expected failure return code
 with({ exit_checker => sub { return shift == 6; } },
@@ -1019,3 +1438,196 @@ with({ exit_checker => sub { return shift == 3; } },
 		   ])),
 	   "Check for failure when cipher does not have an assigned OID (issue#22225)");
      });
+
+# Test cases for CVE-2026-28389
+my $smcont_malformed = srctop_file("test", "recipes", "80-test_cms_data", "dh-malformed.der");
+my $smdhcert = srctop_file("test", "recipes", "80-test_cms_data", "dh-cert.pem");
+my $smdhkey = srctop_file("test", "recipes", "80-test_cms_data", "dh-key.pem");
+
+with({ exit_checker => sub { return shift == 4; } },
+    sub {
+        SKIP: {
+          skip "DH is not supported in this build", 1 if $no_dh;
+
+          ok(run(app(["openssl", "cms", @prov, "-decrypt", "-in", $smcont_malformed,
+                      "-inform", "DER", "-recip", $smdhcert, "-inkey", $smdhkey])),
+             "Must not crash on malformed cms inputs with dh key");
+        }
+    });
+
+$smcont_malformed = srctop_file("test", "recipes", "80-test_cms_data", "ecdh-malformed.der");
+my $smecdhcert = srctop_file("test", "recipes", "80-test_cms_data", "ecdh-cert.pem");
+my $smecdhkey = srctop_file("test", "recipes", "80-test_cms_data", "ecdh-key.pem");
+
+with({ exit_checker => sub { return shift == 4; } },
+    sub {
+        SKIP: {
+          skip "EC is not supported in this build", 1 if $no_ec;
+
+          ok(run(app(["openssl", "cms", @prov, "-decrypt", "-in", $smcont_malformed,
+                       "-inform", "DER", "-recip", $smecdhcert, "-inkey", $smecdhkey])),
+             "Must not crash on malformed cms inputs with ecdh key");
+        }
+    });
+
+$smcont_malformed = srctop_file("test", "recipes", "80-test_cms_data", "rsa-malformed.der");
+my $smrsacert = catfile($smdir, "smrsa3.pem");
+my $smrsakey = catfile($smdir, "smrsa3-key.pem");
+
+# Test case for CVE-2026-28390
+with({ exit_checker => sub { my $ret = shift; return $ret == 4 || $ret == 0; } },
+    sub {
+        ok(run(app(["openssl", "cms", @prov, "-decrypt", "-in", $smcont_malformed, "-inform",
+                   "DER", "-recip", $smrsacert, "-inkey", $smrsakey, "-out", "{output}.cms"])),
+           "Must not crash on malformed cms inputs with RSA key");
+    });
+
+# Test encrypt to three recipients, and decrypt using key-only;
+# i.e. do not follow the recommended practice of providing the
+# recipient cert in the decrypt op.
+#
+# Use RSAES-OAEP for key-transport, not RSAES-PKCS-v1_5.
+#
+# Because the cert is not provided during decrypt, all RSA ciphertexts
+# are decrypted in turn, and when/if there is a valid decryption, it
+# is assumed the correct content-key has been recovered.
+#
+# That process may fail with RSAES-PKCS-v1_5 b/c there is a
+# non-negligible chance that decrypting a random input using
+# RSAES-PKCS-v1_5 can result in a valid plaintext (so two content-keys
+# could be recovered and the wrong one might be used).
+#
+# See https://github.com/openssl/project/issues/380
+subtest "encrypt to three recipients with RSA-OAEP, key only decrypt" => sub {
+    plan tests => 3;
+
+    my $pt = srctop_file("test", "smcont.txt");
+    my $ct = "smtst.cms";
+    my $ptpt = "smtst.txt";
+
+    ok(run(app(['openssl', 'cms',
+		@defaultprov,
+		'-encrypt', '-aes128',
+		'-in', $pt,
+		'-out', $ct,
+		'-stream',
+		'-recip', catfile($smdir, "smrsa1.pem"),
+		'-keyopt', 'rsa_padding_mode:oaep',
+		'-recip', catfile($smdir, "smrsa2.pem"),
+		'-keyopt', 'rsa_padding_mode:oaep',
+		'-recip', catfile($smdir, "smrsa3-cert.pem"),
+		'-keyopt', 'rsa_padding_mode:oaep',
+	       ])),
+       "encrypt to three recipients with RSA-OAEP (avoid openssl/project issue#380)");
+    ok(run(app(['openssl', 'cms',
+		@defaultprov,
+		'-decrypt', '-aes128',
+		'-in', $ct,
+		'-out', $ptpt,
+		'-inkey', catfile($smdir, "smrsa3-key.pem"),
+	       ])),
+       "decrypt with key only");
+    is(compare($pt, $ptpt), 0, "compare original message with decrypted ciphertext");
+};
+
+subtest "EdDSA tests for CMS" => sub {
+    plan tests => 2;
+
+    SKIP: {
+        skip "ECX (EdDSA) is not supported in this build", 2
+            if disabled("ecx");
+
+        my $crt1 = srctop_file("test", "certs", "root-ed25519.pem");
+        my $key1 = srctop_file("test", "certs", "root-ed25519.privkey.pem");
+        my $sig1 = "sig1.cms";
+
+        ok(run(app(["openssl", "cms", @prov, "-sign", "-md", "sha512", "-in", $smcont,
+                    "-signer", $crt1, "-inkey", $key1, "-out", $sig1])),
+           "accept CMS signature with Ed25519");
+
+        ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig1,
+                    "-CAfile", $crt1, "-content", $smcont])),
+           "accept CMS verify with Ed25519");
+    }
+};
+
+subtest "ML-DSA tests for CMS" => sub {
+    plan tests => 2;
+
+    SKIP: {
+        skip "ML-DSA is not supported in this build", 2
+            if disabled("ml-dsa") || $no_pqc;
+
+        my $sig1 = "sig1.cms";
+
+        # draft-ietf-lamps-cms-ml-dsa: use SHA512 with ML-DSA
+        ok(run(app(["openssl", "cms", @prov, "-sign", "-md", "sha512", "-in", $smcont,
+                    "-certfile", $smroot, "-signer", catfile($smdir, "sm_mldsa44.pem"),
+                    "-out", $sig1])),
+           "accept CMS signature with ML-DSA-44");
+
+        ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig1,
+                    "-CAfile", $smroot, "-content", $smcont])),
+           "accept CMS verify with ML-DSA-44");
+    }
+};
+
+subtest "SLH-DSA tests for CMS" => sub {
+    plan tests => 6;
+
+    SKIP: {
+        skip "SLH-DSA is not supported in this build", 6
+            if disabled("slh-dsa") || $no_pqc;
+
+        my $sig1 = "sig1.cms";
+
+        # draft-ietf-lamps-cms-sphincs-plus: use SHA512 with SLH-DSA-SHA2
+        ok(run(app(["openssl", "cms", @prov, "-sign", "-md", "sha512", "-in", $smcont,
+                    "-certfile", $smroot, "-signer", catfile($smdir, "sm_slhdsa_sha2_128s.pem"),
+                    "-out", $sig1])),
+           "accept CMS signature with SLH-DSA-SHA2-128s");
+
+        ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig1,
+                    "-CAfile", $smroot, "-content", $smcont])),
+           "accept CMS verify with SLH-DSA-SHA2-128s");
+
+        # draft-ietf-lamps-cms-sphincs-plus: use SHAKE128 with SLH-DSA-SHAKE-128*
+        ok(run(app(["openssl", "cms", @prov, "-sign", "-md", "shake128", "-in", $smcont,
+                    "-certfile", $smroot, "-signer", catfile($smdir, "sm_slhdsa_shake_128s.pem"),
+                    "-out", $sig1])),
+           "accept CMS signature with SLH-DSA-SHAKE-128s");
+
+        ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig1,
+                    "-CAfile", $smroot, "-content", $smcont])),
+           "accept CMS verify with SLH-DSA-SHAKE-128s");
+
+        # draft-ietf-lamps-cms-sphincs-plus: use SHAKE256 with SLH-DSA-SHAKE-256*
+        ok(run(app(["openssl", "cms", @prov, "-sign", "-md", "shake256", "-in", $smcont,
+                    "-certfile", $smroot, "-signer", catfile($smdir, "sm_slhdsa_shake_256s.pem"),
+                    "-out", $sig1])),
+           "accept CMS signature with SLH-DSA-SHAKE-256s");
+
+        ok(run(app(["openssl", "cms", @prov, "-verify", "-in", $sig1,
+                    "-CAfile", $smroot, "-content", $smcont])),
+           "accept CMS verify with SLH-DSA-SHAKE-256s");
+    }
+};
+
+# Regression test for NULL dereference in PWRI decrypt path
+# when optional keyDerivationAlgorithm is omitted.
+subtest "PWRI missing keyDerivationAlgorithm regression" => sub {
+    plan tests => 1;
+
+    with({ exit_checker => sub { return shift == 4; } }, sub {
+        ok(run(app([
+            "openssl", "cms", @prov,
+            "-decrypt",
+            "-inform", "DER",
+            "-in",
+            srctop_file('test', 'cms-msg', 'missing-kdf.der'),
+            "-out", "pwri-out.txt",
+            "-pwri_password", "secret"])),
+        "missing keyDerivationAlgorithm is rejected");
+    });
+};
+

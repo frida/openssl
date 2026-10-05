@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# Copyright 2016-2023 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2016-2026 The OpenSSL Project Authors. All Rights Reserved.
 # Copyright (c) 2016 Viktor Dukhovni <openssl-users@dukhovni.org>.
 # All rights reserved.
 #
@@ -238,12 +238,14 @@ geneealt() {
 genee() {
     local OPTIND=1
     local purpose=serverAuth
+    local ku=
 
-    while getopts p: o
+    while getopts p:k: o
     do
         case $o in
         p) purpose="$OPTARG";;
-        *) echo "Usage: $0 genee [-p EKU] cn keyname certname cakeyname cacertname" >&2
+        k) ku="keyUsage = $OPTARG";;
+        *) echo "Usage: $0 genee [-k KU] [-p EKU] cn keyname certname cakeyname cacertname" >&2
            return 1;;
         esac
     done
@@ -255,10 +257,11 @@ genee() {
     local cakey=$1; shift
     local ca=$1; shift
 
-    exts=$(printf "%s\n%s\n%s\n%s\n%s\n[alts]\n%s\n" \
+    exts=$(printf "%s\n%s\n%s\n%s\n%s\n%s\n[alts]\n%s\n" \
 	    "subjectKeyIdentifier = hash" \
 	    "authorityKeyIdentifier = keyid, issuer" \
 	    "basicConstraints = CA:false" \
+            "$ku" \
 	    "extendedKeyUsage = $purpose" \
 	    "subjectAltName = @alts" "DNS=${cn}")
     csr=$(req "$key" "CN = $cn") || return 1
